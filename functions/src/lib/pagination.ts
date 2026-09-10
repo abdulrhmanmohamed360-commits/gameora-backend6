@@ -1,26 +1,29 @@
-export interface PaginationParams {
+export interface PageParams {
   page: number;
   limit: number;
-  offset: number;
 }
 
-export function getPagination(
-  page?: string | number,
-  limit?: string | number
-): PaginationParams {
-  const parsedPage = Math.max(
-    1,
-    Number(page) || 1
-  );
+export function parsePageParams(query: Record<string, any>): PageParams {
+  const page = Math.max(1, parseInt(query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
+  return { page, limit };
+}
 
-  const parsedLimit = Math.min(
-    100,
-    Math.max(1, Number(limit) || 20)
-  );
-
+export function buildPaginatedResponse<T>(
+  items: T[],
+  totalCount: number,
+  page: number,
+  limit: number
+) {
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
   return {
-    page: parsedPage,
-    limit: parsedLimit,
-    offset: (parsedPage - 1) * parsedLimit,
+    items,
+    data: items,
+    page,
+    limit,
+    total: totalCount,
+    totalPages,
+    hasMore: page < totalPages,
+    nextPage: page < totalPages ? page + 1 : null,
   };
 }
