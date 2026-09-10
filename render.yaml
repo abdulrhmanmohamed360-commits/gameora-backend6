@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: gameora-api
+    runtime: node
+    plan: free
+    rootDir: functions
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_SEED_KEY
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false

@@ -1,0 +1,17 @@
+{
+  "rewrites": [
+    { "source": "/health", "destination": "/api/index" },
+    { "source": "/auth/:path*", "destination": "/api/index" },
+    { "source": "/users/:path*", "destination": "/api/index" },
+    { "source": "/games/:path*", "destination": "/api/index" },
+    { "source": "/categories/:path*", "destination": "/api/index" },
+    { "source": "/products/:path*", "destination": "/api/index" },
+    { "source": "/sellers/:path*", "destination": "/api/index" },
+    { "source": "/reviews/:path*", "destination": "/api/index" },
+    { "source": "/orders/:path*", "destination": "/api/index" },
+    { "source": "/wallet/:path*", "destination": "/api/index" },
+    { "source": "/conversations/:path*", "destination": "/api/index" },
+    { "source": "/notifications/:path*", "destination": "/api/index" },
+    { "source": "/admin/:path*", "destination": "/api/index" }
+  ]
+}

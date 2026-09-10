@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gameora - إضافة بيانات تجريبية</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 40px auto; padding: 0 16px; }
+  h1 { font-size: 20px; }
+  input, button { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; box-sizing: border-box; }
+  button { background: #4f46e5; color: white; border: none; border-radius: 8px; }
+  #result { margin-top: 16px; white-space: pre-wrap; font-family: monospace; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>إضافة الألعاب والفئات التجريبية</h1>
+  <p>حط مفتاح الأدمن (ADMIN_SEED_KEY) اللي حطيته في functions/.env بعدين دوس الزرار.</p>
+  <input id="key" type="text" placeholder="Admin key" />
+  <button onclick="seed()">أضف البيانات التجريبية</button>
+  <div id="result"></div>
+
+<script>
+async function seed() {
+  const key = document.getElementById('key').value.trim();
+  const resultEl = document.getElementById('result');
+  resultEl.textContent = 'جاري التنفيذ...';
+  try {
+    const res = await fetch('/admin/seed', {
+      method: 'POST',
+      headers: { 'x-admin-key': key }
+    });
+    const data = await res.json();
+    resultEl.textContent = res.ok
+      ? 'تم بنجاح ✅\n' + JSON.stringify(data, null, 2)
+      : 'خطأ ❌\n' + JSON.stringify(data, null, 2);
+  } catch (e) {
+    resultEl.textContent = 'خطأ في الاتصال: ' + e;
+  }
+}
+</script>
+</body>
+</html>

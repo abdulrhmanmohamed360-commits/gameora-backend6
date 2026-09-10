@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// كل القراءة/الكتابة بتتم من الـ Cloud Functions بس (Admin SDK بيتخطى القواعد دي).
+// التطبيق (Android) بيكلم الـ Functions عن طريق REST، مش Firestore مباشرة،
+// فالقواعد دي بتقفل أي وصول مباشر من برة عشان الأمان.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
