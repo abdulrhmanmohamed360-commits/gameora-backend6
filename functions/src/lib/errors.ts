@@ -1,37 +1,20 @@
-export class AppError extends Error {
-  statusCode: number;
+export class ApiError extends Error {
+  status: number;
   code: string;
 
-  constructor(
-    message: string,
-    statusCode = 400,
-    code = "BAD_REQUEST"
-  ) {
+  constructor(status: number, code: string, message: string) {
     super(message);
-    this.name = "AppError";
-    this.statusCode = statusCode;
+    this.status = status;
     this.code = code;
   }
 }
 
-export function handleError(error: unknown, res: any) {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({
-      success: false,
-      error: {
-        code: error.code,
-        message: error.message,
-      },
-    });
-  }
-
-  console.error(error);
-
-  return res.status(500).json({
-    success: false,
-    error: {
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Internal server error",
-    },
-  });
-}
+export const Errors = {
+  notFound: (what = "Resource") => new ApiError(404, "not_found", `${what} not found`),
+  unauthorized: (msg = "Unauthorized") => new ApiError(401, "unauthorized", msg),
+  forbidden: (msg = "Forbidden") => new ApiError(403, "forbidden", msg),
+  badRequest: (msg = "Bad request") => new ApiError(400, "bad_request", msg),
+  conflict: (msg = "Conflict") => new ApiError(409, "conflict", msg),
+  insufficientBalance: () =>
+    new ApiError(402, "insufficient_balance", "Insufficient wallet balance"),
+};
