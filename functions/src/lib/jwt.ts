@@ -1,20 +1,20 @@
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "gameora-development-secret";
+const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-me-before-production";
+const EXPIRES_IN = "30d";
 
-export interface JwtPayload {
+export interface TokenPayload {
   uid: string;
-  email?: string;
-  role?: string;
 }
 
-export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: "30d",
-  });
+export function signToken(uid: string): string {
+  return jwt.sign({ uid } as TokenPayload, JWT_SECRET, { expiresIn: EXPIRES_IN });
 }
 
-export function verifyToken(token: string): JwtPayload {
-  return jwt.verify(token, JWT_SECRET) as JwtPayload;
+export function verifyToken(token: string): TokenPayload | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+  } catch {
+    return null;
+  }
 }
