@@ -1,1574 +1,2977 @@
-<!DOCTYPE html><html lang="ar" dir="rtl">
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gameora Admin</title>
+
 <style>
-:root {
-  --green: #18b866;
-  --green-dark: #109653;
-  --bg: #f5f7f6;
-  --card: #ffffff;
-  --text: #17211b;
-  --muted: #748078;
-  --border: #e7ebe8;
-  --danger: #dc3545;
-  --danger-dark: #b91c1c;
-  --warning: #f59e0b;
-  --blue: #2563eb;
+:root{
+  --green:#18b866;
+  --green-dark:#109653;
+  --bg:#f5f7f6;
+  --card:#fff;
+  --text:#17211b;
+  --muted:#748078;
+  --border:#e7ebe8;
+  --danger:#dc3545;
+  --warning:#f59e0b;
+  --blue:#2563eb;
 }
 
-* { box-sizing: border-box; }
+*{box-sizing:border-box}
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 }
 
-button, input, select { font: inherit; }
-button { cursor: pointer; }
-button:disabled { opacity: .6; cursor: not-allowed; }
-
-/* ========================= LOGIN ========================= */
-.login-screen {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+button,input,select,textarea{
+  font:inherit;
 }
 
-.login-card {
-  width: 100%;
-  max-width: 420px;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  padding: 32px;
-  box-shadow: 0 15px 50px rgba(0,0,0,.07);
+button{
+  cursor:pointer;
 }
 
-.logo {
-  width: 58px; height: 58px; border-radius: 17px;
-  background: var(--green); color: white;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 25px; margin-bottom: 18px;
+button:disabled{
+  opacity:.6;
+  cursor:not-allowed;
 }
 
-.login-card h1 { margin: 0 0 8px; font-size: 26px; }
-.login-card p { margin: 0 0 24px; color: var(--muted); }
-.form-group { margin-bottom: 15px; }
-label { display: block; margin-bottom: 7px; font-weight: 600; font-size: 14px; }
+/* ================= LOGIN ================= */
 
-input, select {
-  width: 100%;
-  border: 1px solid var(--border);
-  background: white;
-  padding: 13px 14px;
-  border-radius: 11px;
-  outline: none;
-  color: var(--text);
+.login-screen{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
 }
 
-input:focus, select:focus {
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(24,184,102,.10);
+.login-card{
+  width:100%;
+  max-width:420px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:22px;
+  padding:32px;
+  box-shadow:0 15px 50px rgba(0,0,0,.07);
 }
 
-.primary-btn {
-  width: 100%; border: 0; padding: 14px; border-radius: 11px;
-  color: white; background: var(--green); font-weight: 700;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.primary-btn:hover { background: var(--green-dark); }
-
-.field-error { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 18px; }
-
-/* ========================= APP ========================= */
-.app { display: none; min-height: 100vh; }
-
-.sidebar {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 245px;
-  background: #fff; border-left: 1px solid var(--border);
-  padding: 22px 14px; z-index: 20; overflow-y: auto;
+.logo{
+  width:58px;
+  height:58px;
+  border-radius:17px;
+  background:var(--green);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  font-size:25px;
+  margin-bottom:18px;
 }
 
-.brand { display: flex; align-items: center; gap: 11px; padding: 0 10px 25px; font-size: 20px; font-weight: 800; }
-.brand-icon { width: 42px; height: 42px; border-radius: 13px; background: var(--green); color: white; display: flex; align-items: center; justify-content: center; }
-.menu-title { color: var(--muted); font-size: 11px; margin: 15px 10px 8px; }
-
-.menu-item {
-  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 11px;
-  border: 0; background: transparent; padding: 12px 13px; border-radius: 10px;
-  text-align: right; color: #536059; margin-bottom: 3px;
-}
-.menu-item:hover, .menu-item.active { background: #eaf9f1; color: var(--green-dark); font-weight: 700; }
-.menu-count { background: #eef2ef; color: #536059; font-size: 11px; padding: 2px 8px; border-radius: 20px; }
-.menu-item.active .menu-count { background: #d6f3e3; color: var(--green-dark); }
-
-.logout-btn {
-  width: 100%; border: 0; background: #fdecec; color: var(--danger);
-  padding: 12px 13px; border-radius: 10px; font-weight: 700; margin-top: 20px;
+.login-card h1{
+  margin:0 0 8px;
+  font-size:26px;
 }
 
-.main { margin-right: 245px; padding: 28px; }
-
-.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; gap: 12px; flex-wrap: wrap; }
-.topbar h1 { margin: 0; font-size: 27px; }
-.topbar p { margin: 5px 0 0; color: var(--muted); }
-.topbar-actions { display: flex; align-items: center; gap: 10px; }
-
-.admin-badge { padding: 9px 13px; border-radius: 10px; background: #eaf9f1; color: var(--green-dark); font-size: 13px; font-weight: 700; }
-
-.menu-toggle {
-  display: none; border: 1px solid var(--border); background: white; border-radius: 10px;
-  width: 40px; height: 40px; align-items: center; justify-content: center; font-size: 18px;
+.login-card p{
+  margin:0 0 24px;
+  color:var(--muted);
 }
 
-/* ========================= STAT CARDS ========================= */
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 24px; }
-.stat { background: white; border: 1px solid var(--border); border-radius: 16px; padding: 19px; }
-.stat-label { color: var(--muted); font-size: 13px; }
-.stat-value { font-size: 25px; font-weight: 800; margin-top: 7px; }
-.stat-sub { font-size: 12px; margin-top: 6px; color: var(--muted); }
-.stat-sub.up { color: var(--green-dark); }
-.stat-sub.down { color: var(--danger); }
-
-/* ========================= CONTENT ========================= */
-.page { display: none; }
-.page.active { display: block; }
-
-.card { background: white; border: 1px solid var(--border); border-radius: 17px; padding: 20px; margin-bottom: 18px; }
-.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
-.card-header h2 { margin: 0; font-size: 18px; }
-
-.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-.search-input { max-width: 260px; }
-.filter-select { max-width: 180px; }
-
-.action-btn {
-  border: 0; background: var(--green); color: white; padding: 10px 15px;
-  border-radius: 10px; font-weight: 700; white-space: nowrap;
-}
-.action-btn.secondary { background: #eef2ef; color: #344039; }
-.action-btn.danger { background: #fdecec; color: var(--danger); }
-.action-btn:hover { filter: brightness(.96); }
-
-/* ========================= OFFERS ========================= */
-.offer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-.offer { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: white; }
-.offer-image {
-  height: 125px; background: linear-gradient(135deg, #dff8eb, #f4fbf7);
-  display: flex; align-items: center; justify-content: center; color: var(--green-dark); font-weight: 800;
-  background-size: cover; background-position: center;
-}
-.offer-body { padding: 14px; }
-.offer-title { font-weight: 800; }
-.offer-game { color: var(--muted); font-size: 13px; margin-top: 4px; }
-.offer-price { margin-top: 13px; }
-.old-price { color: #9aa49e; text-decoration: line-through; font-size: 13px; }
-.new-price { color: var(--green-dark); font-size: 20px; font-weight: 800; }
-.offer-actions { display: flex; gap: 7px; margin-top: 12px; }
-.small-btn { flex: 1; border: 0; padding: 9px; border-radius: 8px; background: #f1f4f2; font-weight: 600; }
-.small-btn.delete { color: var(--danger); }
-
-/* ========================= TABLE ========================= */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 13px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
-th { color: var(--muted); font-size: 12px; }
-tbody tr:hover { background: #fafbfa; }
-
-.status { display: inline-block; padding: 5px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-.status.active, .status.completed, .status.approved { background: #e7f8ef; color: var(--green-dark); }
-.status.off, .status.cancelled, .status.rejected { background: #f1f3f2; color: #707a74; }
-.status.pending { background: #fef3d9; color: #92660a; }
-.status.disputed, .status.banned { background: #fdecec; color: var(--danger); }
-
-.row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.icon-btn { border: 0; background: #f1f4f2; padding: 7px 11px; border-radius: 8px; font-size: 12px; font-weight: 700; }
-.icon-btn.danger { background: #fdecec; color: var(--danger); }
-.icon-btn.warn { background: #fef3d9; color: #92660a; }
-.icon-btn.ok { background: #e7f8ef; color: var(--green-dark); }
-
-.empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
-.empty-state .big { font-size: 32px; margin-bottom: 8px; }
-.loading-state { text-align: center; padding: 40px 20px; color: var(--muted); }
-
-/* ========================= MODAL ========================= */
-.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); align-items: center; justify-content: center; padding: 20px; z-index: 100; }
-.modal.show { display: flex; }
-.modal-card { width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; background: white; border-radius: 20px; padding: 23px; }
-.modal-card.small { max-width: 420px; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.modal-header h2 { margin: 0; font-size: 19px; }
-.close { border: 0; background: #f1f3f2; width: 35px; height: 35px; border-radius: 50%; }
-
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
-.full { grid-column: 1 / -1; }
-
-.result { margin-top: 15px; padding: 12px; border-radius: 10px; background: #f4f6f5; white-space: pre-wrap; font-size: 12px; }
-
-/* confirm modal */
-.confirm-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 14px; }
-.confirm-icon.danger { background: #fdecec; color: var(--danger); }
-.confirm-icon.warn { background: #fef3d9; color: #92660a; }
-.confirm-actions { display: flex; gap: 10px; margin-top: 18px; }
-.confirm-actions button { flex: 1; }
-
-/* ========================= TOASTS ========================= */
-.toast-wrap { position: fixed; bottom: 20px; left: 20px; z-index: 999; display: flex; flex-direction: column; gap: 10px; }
-.toast {
-  background: #1c2620; color: white; padding: 13px 18px; border-radius: 12px;
-  font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.2);
-  opacity: 0; transform: translateY(10px); transition: all .25s ease;
-  max-width: 320px;
-}
-.toast.show { opacity: 1; transform: translateY(0); }
-.toast.toast-error { background: #4a1414; }
-.toast.toast-success { background: #123322; }
-
-/* ========================= MOBILE ========================= */
-@media (max-width: 900px) {
-  .sidebar { width: 210px; }
-  .main { margin-right: 210px; }
-  .stats { grid-template-columns: repeat(2, 1fr); }
-  .offer-grid { grid-template-columns: repeat(2, 1fr); }
+.form-group{
+  margin-bottom:15px;
 }
 
-@media (max-width: 650px) {
-  .menu-toggle { display: flex; }
-  .sidebar {
-    right: -260px; width: 240px; top: 0; bottom: 0;
-    transition: right .25s ease; box-shadow: 0 0 0 rgba(0,0,0,0);
+label{
+  display:block;
+  margin-bottom:7px;
+  font-weight:600;
+  font-size:14px;
+}
+
+input,select,textarea{
+  width:100%;
+  border:1px solid var(--border);
+  background:#fff;
+  padding:13px 14px;
+  border-radius:11px;
+  outline:none;
+  color:var(--text);
+}
+
+textarea{
+  min-height:100px;
+  resize:vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus{
+  border-color:var(--green);
+  box-shadow:0 0 0 3px rgba(24,184,102,.10);
+}
+
+.primary-btn{
+  width:100%;
+  border:0;
+  padding:14px;
+  border-radius:11px;
+  color:#fff;
+  background:var(--green);
+  font-weight:700;
+}
+
+.primary-btn:hover{
+  background:var(--green-dark);
+}
+
+.field-error{
+  color:var(--danger);
+  font-size:13px;
+  margin-top:10px;
+  min-height:18px;
+}
+
+/* ================= APP ================= */
+
+.app{
+  display:none;
+  min-height:100vh;
+}
+
+.sidebar{
+  position:fixed;
+  top:0;
+  right:0;
+  bottom:0;
+  width:245px;
+  background:#fff;
+  border-left:1px solid var(--border);
+  padding:22px 14px;
+  z-index:20;
+  overflow-y:auto;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:0 10px 25px;
+  font-size:20px;
+  font-weight:800;
+}
+
+.brand-icon{
+  width:42px;
+  height:42px;
+  border-radius:13px;
+  background:var(--green);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.menu-title{
+  color:var(--muted);
+  font-size:11px;
+  margin:15px 10px 8px;
+}
+
+.menu-item{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:11px;
+  border:0;
+  background:transparent;
+  padding:12px 13px;
+  border-radius:10px;
+  text-align:right;
+  color:#536059;
+  margin-bottom:3px;
+}
+
+.menu-item:hover,
+.menu-item.active{
+  background:#eaf9f1;
+  color:var(--green-dark);
+  font-weight:700;
+}
+
+.menu-count{
+  background:#eef2ef;
+  color:#536059;
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:20px;
+}
+
+.menu-item.active .menu-count{
+  background:#d6f3e3;
+  color:var(--green-dark);
+}
+
+.logout-btn{
+  width:100%;
+  border:0;
+  background:#fdecec;
+  color:var(--danger);
+  padding:12px 13px;
+  border-radius:10px;
+  font-weight:700;
+  margin-top:20px;
+}
+
+.main{
+  margin-right:245px;
+  padding:28px;
+}
+
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:25px;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.topbar h1{
+  margin:0;
+  font-size:27px;
+}
+
+.topbar p{
+  margin:5px 0 0;
+  color:var(--muted);
+}
+
+.topbar-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.admin-badge{
+  padding:9px 13px;
+  border-radius:10px;
+  background:#eaf9f1;
+  color:var(--green-dark);
+  font-size:13px;
+  font-weight:700;
+}
+
+.menu-toggle{
+  display:none;
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:10px;
+  width:40px;
+  height:40px;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+}
+
+/* ================= STATS ================= */
+
+.stats{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:15px;
+  margin-bottom:24px;
+}
+
+.stat{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:19px;
+}
+
+.stat-label{
+  color:var(--muted);
+  font-size:13px;
+}
+
+.stat-value{
+  font-size:25px;
+  font-weight:800;
+  margin-top:7px;
+}
+
+/* ================= CONTENT ================= */
+
+.page{
+  display:none;
+}
+
+.page.active{
+  display:block;
+}
+
+.card{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:17px;
+  padding:20px;
+  margin-bottom:18px;
+}
+
+.card-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:18px;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.card-header h2{
+  margin:0;
+  font-size:18px;
+}
+
+.action-btn{
+  border:0;
+  background:var(--green);
+  color:#fff;
+  padding:10px 15px;
+  border-radius:10px;
+  font-weight:700;
+}
+
+.action-btn:hover{
+  background:var(--green-dark);
+}
+
+.action-btn.secondary{
+  background:#eef2ef;
+  color:#344039;
+}
+
+.action-btn.danger{
+  background:#fdecec;
+  color:var(--danger);
+}
+
+/* ================= OFFERS ================= */
+
+.offer-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:15px;
+}
+
+.offer{
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+  background:#fff;
+}
+
+.offer-image{
+  height:140px;
+  background:linear-gradient(135deg,#dff8eb,#f4fbf7);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--green-dark);
+  font-weight:800;
+  background-size:cover;
+  background-position:center;
+}
+
+.offer-body{
+  padding:14px;
+}
+
+.offer-title{
+  font-weight:800;
+  font-size:17px;
+}
+
+.offer-game{
+  color:var(--muted);
+  font-size:13px;
+  margin-top:5px;
+}
+
+.offer-description{
+  color:var(--muted);
+  font-size:13px;
+  margin-top:8px;
+  line-height:1.6;
+}
+
+.offer-price{
+  margin-top:13px;
+}
+
+.old-price{
+  color:#9aa49e;
+  text-decoration:line-through;
+  font-size:13px;
+}
+
+.new-price{
+  color:var(--green-dark);
+  font-size:20px;
+  font-weight:800;
+}
+
+.discount{
+  display:inline-block;
+  margin-top:8px;
+  padding:5px 9px;
+  border-radius:20px;
+  background:#e7f8ef;
+  color:var(--green-dark);
+  font-size:12px;
+  font-weight:700;
+}
+
+.offer-actions{
+  display:flex;
+  gap:7px;
+  margin-top:12px;
+}
+
+.small-btn{
+  flex:1;
+  border:0;
+  padding:9px;
+  border-radius:8px;
+  background:#f1f4f2;
+  font-weight:600;
+}
+
+.small-btn.delete{
+  color:var(--danger);
+}
+
+.small-btn.toggle{
+  color:var(--green-dark);
+}
+
+/* ================= TABLE ================= */
+
+.table-wrap{
+  overflow-x:auto;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+th,td{
+  padding:13px 10px;
+  border-bottom:1px solid var(--border);
+  text-align:right;
+  white-space:nowrap;
+}
+
+th{
+  color:var(--muted);
+  font-size:12px;
+}
+
+.empty-state,
+.loading-state{
+  text-align:center;
+  padding:40px 20px;
+  color:var(--muted);
+}
+
+/* ================= MODAL ================= */
+
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  z-index:100;
+}
+
+.modal.show{
+  display:flex;
+}
+
+.modal-card{
+  width:100%;
+  max-width:560px;
+  max-height:90vh;
+  overflow-y:auto;
+  background:#fff;
+  border-radius:20px;
+  padding:23px;
+}
+
+.modal-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:20px;
+}
+
+.modal-header h2{
+  margin:0;
+  font-size:19px;
+}
+
+.close{
+  border:0;
+  background:#f1f3f2;
+  width:35px;
+  height:35px;
+  border-radius:50%;
+}
+
+.form-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:13px;
+}
+
+.full{
+  grid-column:1 / -1;
+}
+
+.modal-actions{
+  display:flex;
+  gap:10px;
+  margin-top:18px;
+}
+
+.modal-actions button{
+  flex:1;
+}
+
+/* ================= TOAST ================= */
+
+.toast-wrap{
+  position:fixed;
+  bottom:20px;
+  left:20px;
+  z-index:999;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.toast{
+  background:#1c2620;
+  color:#fff;
+  padding:13px 18px;
+  border-radius:12px;
+  font-size:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.2);
+  opacity:0;
+  transform:translateY(10px);
+  transition:.25s;
+  max-width:340px;
+}
+
+.toast.show{
+  opacity:1;
+  transform:translateY(0);
+}
+
+.toast.error{
+  background:#4a1414;
+}
+
+.toast.success{
+  background:#123322;
+}
+
+/* ================= MOBILE ================= */
+
+@media(max-width:900px){
+  .sidebar{
+    width:210px;
   }
-  .sidebar.open { right: 0; box-shadow: -10px 0 40px rgba(0,0,0,.15); }
-  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 15; }
-  .sidebar-overlay.show { display: block; }
-  .main { margin-right: 0; padding: 16px; }
-  .stats { grid-template-columns: 1fr 1fr; }
-  .offer-grid { grid-template-columns: 1fr; }
-  .form-grid { grid-template-columns: 1fr; }
-  .full { grid-column: auto; }
-  .topbar { align-items: flex-start; gap: 10px; }
-  .topbar h1 { font-size: 22px; }
-  .toast-wrap { left: 12px; right: 12px; bottom: 12px; }
-  .toast { max-width: none; }
+
+  .main{
+    margin-right:210px;
+  }
+
+  .stats{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  .offer-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+
+@media(max-width:650px){
+  .menu-toggle{
+    display:flex;
+  }
+
+  .sidebar{
+    right:-260px;
+    width:240px;
+    transition:right .25s ease;
+    box-shadow:0 0 0 rgba(0,0,0,0);
+  }
+
+  .sidebar.open{
+    right:0;
+    box-shadow:-10px 0 40px rgba(0,0,0,.15);
+  }
+
+  .sidebar-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.35);
+    z-index:15;
+  }
+
+  .sidebar-overlay.show{
+    display:block;
+  }
+
+  .main{
+    margin-right:0;
+    padding:16px;
+  }
+
+  .stats{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .offer-grid{
+    grid-template-columns:1fr;
+  }
+
+  .form-grid{
+    grid-template-columns:1fr;
+  }
+
+  .full{
+    grid-column:auto;
+  }
+
+  .toast-wrap{
+    left:12px;
+    right:12px;
+    bottom:12px;
+  }
+
+  .toast{
+    max-width:none;
+  }
 }
 </style>
 </head>
+
 <body>
 
-<!-- ========================= LOGIN ========================= -->
+<!-- ================= LOGIN ================= -->
+
 <section class="login-screen" id="loginScreen">
+
   <div class="login-card">
+
     <div class="logo">G</div>
+
     <h1>Gameora Admin</h1>
-    <p>لوحة التحكم الخاصة بإدارة منصة Gameora</p>
+
+    <p>
+      لوحة التحكم الخاصة بإدارة منصة Gameora
+    </p>
 
     <div class="form-group">
+
       <label>مفتاح الإدارة</label>
-      <input id="adminKey" type="password" placeholder="أدخل مفتاح الإدارة" onkeydown="if(event.key==='Enter') login()" />
+
+      <input
+        id="adminKey"
+        type="password"
+        placeholder="أدخل مفتاح الإدارة"
+        autocomplete="off"
+        onkeydown="if(event.key==='Enter') login()"
+      >
+
     </div>
 
-    <button class="primary-btn" id="loginBtn" onclick="login()">دخول لوحة التحكم</button>
-    <div class="field-error" id="loginResult"></div>
+    <button
+      class="primary-btn"
+      id="loginBtn"
+      onclick="login()"
+    >
+      دخول لوحة التحكم
+    </button>
+
+    <div
+      class="field-error"
+      id="loginResult"
+    ></div>
+
   </div>
+
 </section>
 
-<!-- ========================= APP ========================= -->
+
+<!-- ================= APP ================= -->
+
 <div class="app" id="app">
-  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar(false)"></div>
+
+  <div
+    class="sidebar-overlay"
+    id="sidebarOverlay"
+    onclick="toggleSidebar(false)"
+  ></div>
+
 
   <aside class="sidebar" id="sidebar">
+
     <div class="brand">
+
       <div class="brand-icon">G</div>
+
       <span>Gameora Admin</span>
+
     </div>
 
-    <div class="menu-title">الإدارة</div>
-    <button class="menu-item active" onclick="showPage('dashboard', this)">لوحة التحكم</button>
-    <button class="menu-item" onclick="showPage('offers', this)">العروض والخصومات <span class="menu-count" id="countOffers">0</span></button>
-    <button class="menu-item" onclick="showPage('games', this)">الألعاب <span class="menu-count" id="countGames">0</span></button>
-    <button class="menu-item" onclick="showPage('categories', this)">التصنيفات <span class="menu-count" id="countCategories">0</span></button>
 
-    <div class="menu-title">المنصة</div>
-    <button class="menu-item" onclick="showPage('products', this)">المنتجات <span class="menu-count" id="countProducts">0</span></button>
-    <button class="menu-item" onclick="showPage('orders', this)">الطلبات <span class="menu-count" id="countOrders">0</span></button>
-    <button class="menu-item" onclick="showPage('users', this)">المستخدمون <span class="menu-count" id="countUsers">0</span></button>
+    <div class="menu-title">
+      الإدارة
+    </div>
 
-    <div class="menu-title">المالية</div>
-    <button class="menu-item" onclick="showPage('earnings', this)">الأرباح</button>
-    <button class="menu-item" onclick="showPage('wallet', this)">المحافظ والمعاملات</button>
-    <button class="menu-item" onclick="showPage('withdrawals', this)">طلبات السحب <span class="menu-count" id="countWithdrawals">0</span></button>
+    <button
+      class="menu-item active"
+      onclick="showPage('dashboard',this)"
+    >
+      لوحة التحكم
+    </button>
 
-    <button class="logout-btn" onclick="logout()">تسجيل الخروج</button>
+    <button
+      class="menu-item"
+      onclick="showPage('offers',this)"
+    >
+      العروض والخصومات
+      <span
+        class="menu-count"
+        id="countOffers"
+      >0</span>
+    </button>
+
+    <button
+      class="menu-item"
+      onclick="showPage('games',this)"
+    >
+      الألعاب
+      <span
+        class="menu-count"
+        id="countGames"
+      >0</span>
+    </button>
+
+    <button
+      class="menu-item"
+      onclick="showPage('categories',this)"
+    >
+      التصنيفات
+      <span
+        class="menu-count"
+        id="countCategories"
+      >0</span>
+    </button>
+
+
+    <div class="menu-title">
+      المنصة
+    </div>
+
+    <button
+      class="menu-item"
+      onclick="showPage('products',this)"
+    >
+      المنتجات
+      <span
+        class="menu-count"
+        id="countProducts"
+      >0</span>
+    </button>
+
+    <button
+      class="menu-item"
+      onclick="showPage('orders',this)"
+    >
+      الطلبات
+      <span
+        class="menu-count"
+        id="countOrders"
+      >0</span>
+    </button>
+
+    <button
+      class="menu-item"
+      onclick="showPage('users',this)"
+    >
+      المستخدمون
+      <span
+        class="menu-count"
+        id="countUsers"
+      >0</span>
+    </button>
+
+
+    <div class="menu-title">
+      المالية
+    </div>
+
+    <button
+      class="menu-item"
+      onclick="showPage('earnings',this)"
+    >
+      الأرباح
+    </button>
+
+    <button
+      class="menu-item"
+      onclick="showPage('wallet',this)"
+    >
+      المحافظ والمعاملات
+    </button>
+
+    <button
+      class="menu-item"
+      onclick="showPage('withdrawals',this)"
+    >
+      طلبات السحب
+      <span
+        class="menu-count"
+        id="countWithdrawals"
+      >0</span>
+    </button>
+
+
+    <button
+      class="logout-btn"
+      onclick="logout()"
+    >
+      تسجيل الخروج
+    </button>
+
   </aside>
 
+
   <main class="main">
+
     <div class="topbar">
-      <div style="display:flex;align-items:center;gap:10px">
-        <button class="menu-toggle" onclick="toggleSidebar(true)">☰</button>
+
+      <div
+        style="display:flex;align-items:center;gap:10px"
+      >
+
+        <button
+          class="menu-toggle"
+          onclick="toggleSidebar(true)"
+        >
+          ☰
+        </button>
+
         <div>
-          <h1 id="pageTitle">لوحة التحكم</h1>
-          <p>إدارة Gameora من مكان واحد</p>
+
+          <h1 id="pageTitle">
+            لوحة التحكم
+          </h1>
+
+          <p>
+            إدارة Gameora من مكان واحد
+          </p>
+
         </div>
+
       </div>
+
+
       <div class="topbar-actions">
-        <div class="admin-badge">Admin</div>
+
+        <div class="admin-badge">
+          Admin
+        </div>
+
       </div>
+
     </div>
 
-    <!-- ========== DASHBOARD ========== -->
-    <section class="page active" id="dashboard">
-      <div class="stats" id="dashboardStats">
-        <div class="stat"><div class="stat-label">إجمالي المستخدمين</div><div class="stat-value">—</div></div>
-        <div class="stat"><div class="stat-label">إجمالي المنتجات</div><div class="stat-value">—</div></div>
-        <div class="stat"><div class="stat-label">إجمالي الطلبات</div><div class="stat-value">—</div></div>
-        <div class="stat"><div class="stat-label">أرباح Gameora</div><div class="stat-value">—</div></div>
-      </div>
 
-      <div class="card">
-        <div class="card-header"><h2>إدارة سريعة</h2></div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="action-btn" onclick="openOfferModal()">إضافة عرض</button>
-          <button class="action-btn secondary" onclick="showPage('games')">إدارة الألعاب</button>
-          <button class="action-btn secondary" onclick="showPage('orders')">مشاهدة الطلبات</button>
-          <button class="action-btn secondary" onclick="showPage('withdrawals')">طلبات السحب</button>
+    <!-- ================= DASHBOARD ================= -->
+
+    <section
+      class="page active"
+      id="dashboard"
+    >
+
+      <div
+        class="stats"
+        id="dashboardStats"
+      >
+
+        <div class="stat">
+
+          <div class="stat-label">
+            إجمالي المستخدمين
+          </div>
+
+          <div
+            class="stat-value"
+            id="statUsers"
+          >
+            —
+          </div>
+
         </div>
+
+
+        <div class="stat">
+
+          <div class="stat-label">
+            إجمالي المنتجات
+          </div>
+
+          <div
+            class="stat-value"
+            id="statProducts"
+          >
+            —
+          </div>
+
+        </div>
+
+
+        <div class="stat">
+
+          <div class="stat-label">
+            إجمالي الطلبات
+          </div>
+
+          <div
+            class="stat-value"
+            id="statOrders"
+          >
+            —
+          </div>
+
+        </div>
+
+
+        <div class="stat">
+
+          <div class="stat-label">
+            أرباح Gameora
+          </div>
+
+          <div
+            class="stat-value"
+            id="statEarnings"
+          >
+            —
+          </div>
+
+        </div>
+
       </div>
 
+
       <div class="card">
+
         <div class="card-header">
-          <h2>آخر العروض</h2>
-          <button class="action-btn secondary" onclick="showPage('offers')">عرض الكل</button>
-        </div>
-        <div id="recentOffers"><div class="loading-state">جاري التحميل...</div></div>
-      </div>
-    </section>
 
-    <!-- ========== OFFERS ========== -->
-    <section class="page" id="offers">
+          <h2>
+            إدارة سريعة
+          </h2>
+
+        </div>
+
+
+        <div
+          style="display:flex;gap:10px;flex-wrap:wrap"
+        >
+
+          <button
+            class="action-btn"
+            onclick="openOfferModal()"
+          >
+            إضافة عرض
+          </button>
+
+          <button
+            class="action-btn secondary"
+            onclick="showPageById('games')"
+          >
+            إدارة الألعاب
+          </button>
+
+          <button
+            class="action-btn secondary"
+            onclick="showPageById('orders')"
+          >
+            مشاهدة الطلبات
+          </button>
+
+          <button
+            class="action-btn secondary"
+            onclick="showPageById('withdrawals')"
+          >
+            طلبات السحب
+          </button>
+
+        </div>
+
+      </div>
+
+
       <div class="card">
+
         <div class="card-header">
-          <h2>العروض والخصومات</h2>
-          <button class="action-btn" onclick="openOfferModal()">+ إضافة عرض</button>
+
+          <h2>
+            آخر العروض
+          </h2>
+
+          <button
+            class="action-btn secondary"
+            onclick="showPageById('offers')"
+          >
+            عرض الكل
+          </button>
+
         </div>
-        <div class="offer-grid" id="offersGrid"><div class="loading-state">جاري التحميل...</div></div>
+
+        <div id="recentOffers">
+          <div class="loading-state">
+            جاري التحميل...
+          </div>
+        </div>
+
       </div>
+
     </section>
 
-    <!-- ========== GAMES ========== -->
-    <section class="page" id="games">
+
+    <!-- ================= OFFERS ================= -->
+
+    <section
+      class="page"
+      id="offers"
+    >
+
       <div class="card">
+
         <div class="card-header">
-          <h2>إدارة الألعاب</h2>
-          <button class="action-btn" onclick="openGameModal()">+ إضافة لعبة</button>
+
+          <h2>
+            العروض والخصومات
+          </h2>
+
+          <button
+            class="action-btn"
+            onclick="openOfferModal()"
+          >
+            + إضافة عرض
+          </button>
+
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>اللعبة</th><th>التصنيف</th><th>عدد المنتجات</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-            <tbody id="gamesTableBody"><tr><td colspan="5"><div class="loading-state">جاري التحميل...</div></td></tr></tbody>
-          </table>
+
+
+        <div
+          class="offer-grid"
+          id="offersGrid"
+        >
+
+          <div class="loading-state">
+            جاري التحميل...
+          </div>
+
         </div>
+
       </div>
+
     </section>
 
-    <!-- ========== CATEGORIES ========== -->
-    <section class="page" id="categories">
+
+    <!-- ================= GAMES ================= -->
+
+    <section
+      class="page"
+      id="games"
+    >
+
       <div class="card">
+
         <div class="card-header">
-          <h2>التصنيفات</h2>
-          <button class="action-btn" onclick="openCategoryModal()">+ إضافة تصنيف</button>
+
+          <h2>
+            إدارة الألعاب
+          </h2>
+
         </div>
+
         <div class="table-wrap">
+
           <table>
-            <thead><tr><th>التصنيف</th><th>عدد الألعاب</th><th>إجراءات</th></tr></thead>
-            <tbody id="categoriesTableBody"><tr><td colspan="3"><div class="loading-state">جاري التحميل...</div></td></tr></tbody>
+
+            <thead>
+
+              <tr>
+                <th>اللعبة</th>
+                <th>الحالة</th>
+                <th>المعرف</th>
+              </tr>
+
+            </thead>
+
+            <tbody id="gamesTableBody">
+
+              <tr>
+                <td colspan="3">
+                  <div class="loading-state">
+                    جاري التحميل...
+                  </div>
+                </td>
+              </tr>
+
+            </tbody>
+
           </table>
+
         </div>
+
       </div>
+
     </section>
 
-    <!-- ========== PRODUCTS ========== -->
-    <section class="page" id="products">
+
+    <!-- ================= CATEGORIES ================= -->
+
+    <section
+      class="page"
+      id="categories"
+    >
+
       <div class="card">
-        <div class="card-header"><h2>المنتجات</h2></div>
-        <div class="toolbar">
-          <input class="search-input" id="productsSearch" placeholder="بحث باسم المنتج أو البائع..." oninput="renderProducts()" />
-          <select class="filter-select" id="productsFilter" onchange="renderProducts()">
-            <option value="">كل الحالات</option>
-            <option value="active">نشط</option>
-            <option value="pending">قيد المراجعة</option>
-            <option value="banned">محظور</option>
-          </select>
+
+        <div class="card-header">
+
+          <h2>
+            التصنيفات
+          </h2>
+
         </div>
+
         <div class="table-wrap">
+
           <table>
-            <thead><tr><th>المنتج</th><th>اللعبة</th><th>البائع</th><th>السعر</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-            <tbody id="productsTableBody"><tr><td colspan="6"><div class="loading-state">جاري التحميل...</div></td></tr></tbody>
+
+            <thead>
+
+              <tr>
+                <th>التصنيف</th>
+                <th>الحالة</th>
+              </tr>
+
+            </thead>
+
+            <tbody id="categoriesTableBody">
+
+              <tr>
+                <td colspan="2">
+                  <div class="loading-state">
+                    جاري التحميل...
+                  </div>
+                </td>
+              </tr>
+
+            </tbody>
+
           </table>
+
         </div>
+
       </div>
+
     </section>
 
-    <!-- ========== ORDERS ========== -->
-    <section class="page" id="orders">
+
+    <!-- ================= PRODUCTS ================= -->
+
+    <section
+      class="page"
+      id="products"
+    >
+
       <div class="card">
-        <div class="card-header"><h2>الطلبات</h2></div>
-        <div class="toolbar">
-          <input class="search-input" id="ordersSearch" placeholder="بحث برقم الطلب أو المشتري..." oninput="renderOrders()" />
-          <select class="filter-select" id="ordersFilter" onchange="renderOrders()">
-            <option value="">كل الحالات</option>
-            <option value="pending">قيد التنفيذ</option>
-            <option value="completed">مكتمل</option>
-            <option value="disputed">نزاع</option>
-            <option value="cancelled">ملغي</option>
-          </select>
+
+        <div class="card-header">
+
+          <h2>
+            المنتجات
+          </h2>
+
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>رقم الطلب</th><th>المشتري</th><th>البائع</th><th>المنتج</th><th>المبلغ</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-            <tbody id="ordersTableBody"><tr><td colspan="7"><div class="loading-state">جاري التحميل...</div></td></tr></tbody>
-          </table>
+
+        <div class="empty-state">
+          سيتم ربط إدارة المنتجات من الـBackend في المرحلة التالية.
         </div>
+
       </div>
+
     </section>
 
-    <!-- ========== USERS ========== -->
-    <section class="page" id="users">
+
+    <!-- ================= ORDERS ================= -->
+
+    <section
+      class="page"
+      id="orders"
+    >
+
       <div class="card">
-        <div class="card-header"><h2>المستخدمون</h2></div>
-        <div class="toolbar">
-          <input class="search-input" id="usersSearch" placeholder="بحث بالاسم أو البريد..." oninput="renderUsers()" />
-          <select class="filter-select" id="usersFilter" onchange="renderUsers()">
-            <option value="">الكل</option>
-            <option value="buyer">مشتري</option>
-            <option value="seller">بائع</option>
-            <option value="banned">محظور</option>
-          </select>
+
+        <div class="card-header">
+
+          <h2>
+            الطلبات
+          </h2>
+
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>المستخدم</th><th>البريد الإلكتروني</th><th>النوع</th><th>تاريخ الانضمام</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-            <tbody id="usersTableBody"><tr><td colspan="6"><div class="loading-state">جاري التحميل...</div></td></tr></tbody>
-          </table>
+
+        <div class="empty-state">
+          سيتم ربط إدارة الطلبات من الـBackend في المرحلة التالية.
         </div>
+
       </div>
+
     </section>
 
-    <!-- ========== EARNINGS ========== -->
-    <section class="page" id="earnings">
-      <div class="stats" id="earningsStats">
-        <div class="stat"><div class="stat-label">إجمالي المبيعات</div><div class="stat-value">—</div></div>
-        <div class="stat"><div class="stat-label">عمولة Gameora</div><div class="stat-value">—</div></div>
-        <div class="stat"><div class="stat-label">أرباح البائعين</div><div class="stat-value">—</div></div>
-        <div class="stat"><div class="stat-label">المبالغ المعلقة</div><div class="stat-value">—</div></div>
-      </div>
+
+    <!-- ================= USERS ================= -->
+
+    <section
+      class="page"
+      id="users"
+    >
+
       <div class="card">
-        <div class="card-header"><h2>آخر العمليات</h2></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>التاريخ</th><th>الطلب</th><th>الإجمالي</th><th>العمولة</th><th>صافي البائع</th></tr></thead>
-            <tbody id="earningsTableBody"><tr><td colspan="5"><div class="loading-state">جاري التحميل...</div></td></tr></tbody>
-          </table>
+
+        <div class="card-header">
+
+          <h2>
+            المستخدمون
+          </h2>
+
         </div>
+
+        <div class="empty-state">
+          سيتم ربط إدارة المستخدمين من الـBackend في المرحلة التالية.
+        </div>
+
       </div>
+
     </section>
 
-    <!-- ========== WALLET ========== -->
-    <section class="page" id="wallet">
+
+    <!-- ================= EARNINGS ================= -->
+
+    <section
+      class="page"
+      id="earnings"
+    >
+
       <div class="card">
-        <div class="card-header"><h2>المحافظ والمعاملات</h2></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>المستخدم</th><th>النوع</th><th>المبلغ</th><th>الرصيد بعد العملية</th><th>التاريخ</th></tr></thead>
-            <tbody id="walletTableBody"><tr><td colspan="5"><div class="loading-state">جاري التحميل...</div></td></tr></tbody>
-          </table>
+
+        <div class="card-header">
+
+          <h2>
+            الأرباح
+          </h2>
+
         </div>
+
+        <div class="empty-state">
+          بيانات الأرباح ستظهر هنا عند ربط النظام المالي.
+        </div>
+
       </div>
+
     </section>
 
-    <!-- ========== WITHDRAWALS ========== -->
-    <section class="page" id="withdrawals">
+
+    <!-- ================= WALLET ================= -->
+
+    <section
+      class="page"
+      id="wallet"
+    >
+
       <div class="card">
-        <div class="card-header"><h2>طلبات السحب</h2></div>
-        <div class="toolbar">
-          <select class="filter-select" id="withdrawalsFilter" onchange="renderWithdrawals()">
-            <option value="">كل الحالات</option>
-            <option value="pending">قيد المراجعة</option>
-            <option value="approved">مقبول</option>
-            <option value="rejected">مرفوض</option>
-          </select>
+
+        <div class="card-header">
+
+          <h2>
+            المحافظ والمعاملات
+          </h2>
+
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>البائع</th><th>المبلغ</th><th>طريقة السحب</th><th>تاريخ الطلب</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-            <tbody id="withdrawalsTableBody"><tr><td colspan="6"><div class="loading-state">جاري التحميل...</div></td></tr></tbody>
-          </table>
+
+        <div class="empty-state">
+          سيتم ربط المحافظ والمعاملات من الـBackend.
         </div>
+
       </div>
+
     </section>
+
+
+       <!-- ================= WITHDRAWALS ================= -->
+
+    <section
+      class="page"
+      id="withdrawals"
+    >
+
+      <div class="card">
+
+        <div class="card-header">
+
+          <h2>
+            طلبات السحب
+          </h2>
+
+        </div>
+
+        <div class="empty-state">
+          سيتم ربط طلبات السحب من الـBackend.
+        </div>
+
+      </div>
+
+    </section>
+
 
   </main>
+
 </div>
 
-<!-- ========================= OFFER MODAL ========================= -->
-<div class="modal" id="offerModal">
+
+<!-- ================= OFFER MODAL ================= -->
+
+<div
+  class="modal"
+  id="offerModal"
+>
+
   <div class="modal-card">
+
     <div class="modal-header">
-      <h2 id="offerModalTitle">إضافة عرض جديد</h2>
-      <button class="close" onclick="closeModal('offerModal')">×</button>
+
+      <h2>
+        إضافة عرض جديد
+      </h2>
+
+      <button
+        class="close"
+        onclick="closeOfferModal()"
+      >
+        ×
+      </button>
+
     </div>
+
+
     <div class="form-grid">
-      <div class="form-group">
-        <label>اسم العرض</label>
-        <input id="offerTitle" placeholder="مثال: عرض 520 Diamonds" />
-      </div>
-      <div class="form-group">
-        <label>اللعبة</label>
-        <select id="offerGame">
-          <option value="">اختر اللعبة</option>
-          <option value="free-fire">Free Fire</option>
-          <option value="pubg-mobile">PUBG Mobile</option>
-          <option value="roblox">Roblox</option>
-          <option value="fortnite">Fortnite</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>السعر الأصلي</label>
-        <input id="offerOldPrice" type="number" step="0.01" placeholder="100" />
-      </div>
-      <div class="form-group">
-        <label>نسبة الخصم %</label>
-        <input id="offerDiscount" type="number" min="0" max="100" placeholder="20" />
-      </div>
-      <div class="form-group">
-        <label>العملة</label>
-        <select id="offerCurrency">
-          <option value="USD">USD</option>
-          <option value="EGP">EGP</option>
-          <option value="SAR">SAR</option>
-          <option value="AED">AED</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>الصورة</label>
-        <input id="offerImage" type="url" placeholder="رابط الصورة" />
-      </div>
-      <div class="form-group">
-        <label>تاريخ البداية</label>
-        <input id="offerStart" type="datetime-local" />
-      </div>
-      <div class="form-group">
-        <label>تاريخ النهاية</label>
-        <input id="offerEnd" type="datetime-local" />
-      </div>
+
       <div class="form-group full">
-        <label>وصف العرض</label>
-        <input id="offerDescription" placeholder="وصف مختصر للعرض" />
+
+        <label>
+          اسم العرض
+        </label>
+
+        <input
+          id="offerTitle"
+          placeholder="مثال: عرض اليوم 100 جوهرة"
+        >
+
       </div>
+
+
+      <div class="form-group">
+
+        <label>
+          اللعبة
+        </label>
+
+        <select id="offerGameId">
+
+          <option value="">
+            جاري تحميل الألعاب...
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <div class="form-group">
+
+        <label>
+          السعر الأصلي
+        </label>
+
+        <input
+          id="offerOldPrice"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="50"
+        >
+
+      </div>
+
+
+      <div class="form-group">
+
+        <label>
+          نسبة الخصم %
+        </label>
+
+        <input
+          id="offerDiscount"
+          type="number"
+          min="0"
+          max="100"
+          step="0.01"
+          value="3"
+          placeholder="3"
+        >
+
+      </div>
+
+
+      <div class="form-group">
+
+        <label>
+          العملة
+        </label>
+
+        <select id="offerCurrency">
+
+          <option value="EGP">
+            EGP
+          </option>
+
+          <option value="SAR">
+            SAR
+          </option>
+
+          <option value="USD">
+            USD
+          </option>
+
+          <option value="AED">
+            AED
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <div class="form-group full">
+
+        <label>
+          رابط الصورة
+        </label>
+
+        <input
+          id="offerImage"
+          type="url"
+          placeholder="https://..."
+        >
+
+      </div>
+
+
+      <div class="form-group">
+
+        <label>
+          تاريخ البداية
+        </label>
+
+        <input
+          id="offerStartAt"
+          type="datetime-local"
+        >
+
+      </div>
+
+
+      <div class="form-group">
+
+        <label>
+          تاريخ النهاية
+        </label>
+
+        <input
+          id="offerEndAt"
+          type="datetime-local"
+        >
+
+      </div>
+
+
+      <div class="form-group full">
+
+        <label>
+          وصف العرض
+        </label>
+
+        <textarea
+          id="offerDescription"
+          placeholder="اكتب وصف العرض..."
+        ></textarea>
+
+      </div>
+
     </div>
-    <button class="primary-btn" id="offerSaveBtn" onclick="saveOffer()" style="margin-top:10px">حفظ العرض</button>
-    <div class="result" id="offerResult" style="display:none"></div>
+
+
+    <div class="modal-actions">
+
+      <button
+        class="action-btn secondary"
+        onclick="closeOfferModal()"
+      >
+        إلغاء
+      </button>
+
+      <button
+        class="action-btn"
+        id="saveOfferBtn"
+        onclick="saveOffer()"
+      >
+        حفظ العرض
+      </button>
+
+    </div>
+
   </div>
+
 </div>
 
-<!-- ========================= GAME MODAL ========================= -->
-<div class="modal" id="gameModal">
-  <div class="modal-card small">
-    <div class="modal-header">
-      <h2 id="gameModalTitle">إضافة لعبة</h2>
-      <button class="close" onclick="closeModal('gameModal')">×</button>
-    </div>
-    <div class="form-group">
-      <label>اسم اللعبة</label>
-      <input id="gameName" placeholder="مثال: Free Fire" />
-    </div>
-    <div class="form-group">
-      <label>التصنيف</label>
-      <select id="gameCategory"><option value="">اختر تصنيفًا</option></select>
-    </div>
-    <div class="form-group">
-      <label>رابط الصورة</label>
-      <input id="gameImage" type="url" placeholder="رابط صورة اللعبة" />
-    </div>
-    <button class="primary-btn" onclick="saveGame()" style="margin-top:6px">حفظ اللعبة</button>
-    <div class="result" id="gameResult" style="display:none"></div>
-  </div>
-</div>
 
-<!-- ========================= CATEGORY MODAL ========================= -->
-<div class="modal" id="categoryModal">
-  <div class="modal-card small">
-    <div class="modal-header">
-      <h2 id="categoryModalTitle">إضافة تصنيف</h2>
-      <button class="close" onclick="closeModal('categoryModal')">×</button>
-    </div>
-    <div class="form-group">
-      <label>اسم التصنيف</label>
-      <input id="categoryName" placeholder="مثال: ألعاب الموبايل" />
-    </div>
-    <button class="primary-btn" onclick="saveCategory()" style="margin-top:6px">حفظ التصنيف</button>
-    <div class="result" id="categoryResult" style="display:none"></div>
-  </div>
-</div>
+<!-- ================= TOAST ================= -->
 
-<!-- ========================= CONFIRM MODAL ========================= -->
-<div class="modal" id="confirmModal">
-  <div class="modal-card small">
-    <div class="confirm-icon" id="confirmIcon">!</div>
-    <h2 id="confirmTitle" style="margin:0 0 8px">تأكيد الإجراء</h2>
-    <p id="confirmMessage" style="margin:0;color:var(--muted)"></p>
-    <div class="confirm-actions">
-      <button class="action-btn secondary" onclick="closeModal('confirmModal')">إلغاء</button>
-      <button class="action-btn danger" id="confirmActionBtn">تأكيد</button>
-    </div>
-  </div>
-</div>
+<div
+  class="toast-wrap"
+  id="toastWrap"
+></div>
 
-<!-- ========================= TOASTS ========================= -->
-<div class="toast-wrap" id="toastWrap"></div>
 
 <script>
+
 /* =========================================================
-   CONFIG & STATE
-========================================================= */
-const API_BASE = '';
-let adminKey = '';
+   CONFIG
+   ========================================================= */
+
+const API_BASE =
+  "https://gameora-backend6-11an.vercel.app";
+
+let adminKey = "";
 
 let offers = [];
+
 let games = [];
+
 let categories = [];
-let products = [];
-let orders = [];
-let users = [];
-let withdrawals = [];
 
-let editingOfferId = null;
-let editingGameId = null;
-let editingCategoryId = null;
 
 /* =========================================================
-   TOASTS
-========================================================= */
-function toast(message, type) {
-  const wrap = document.getElementById('toastWrap');
-  const el = document.createElement('div');
-  el.className = 'toast' + (type ? ' toast-' + type : '');
-  el.textContent = message;
-  wrap.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('show'));
-  setTimeout(() => {
-    el.classList.remove('show');
-    setTimeout(() => el.remove(), 300);
-  }, 3800);
+   HELPERS
+   ========================================================= */
+
+function escapeHtml(value){
+
+  return String(value ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+
 }
 
-/* =========================================================
-   MODAL HELPERS
-========================================================= */
-function openModal(id) { document.getElementById(id).classList.add('show'); }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show'));
-  }
-});
-document.querySelectorAll('.modal').forEach(modal => {
-  modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
-});
+function showToast(message,type="success"){
 
-function confirmAction({ title, message, confirmLabel, danger = true, onConfirm }) {
-  document.getElementById('confirmTitle').textContent = title || 'تأكيد الإجراء';
-  document.getElementById('confirmMessage').textContent = message || '';
-  const icon = document.getElementById('confirmIcon');
-  icon.className = 'confirm-icon ' + (danger ? 'danger' : 'warn');
-  icon.textContent = danger ? '✕' : '!';
-  const btn = document.getElementById('confirmActionBtn');
-  btn.textContent = confirmLabel || 'تأكيد';
-  btn.className = danger ? 'action-btn danger' : 'action-btn';
-  const newBtn = btn.cloneNode(true);
-  btn.parentNode.replaceChild(newBtn, btn);
-  newBtn.addEventListener('click', async () => {
-    newBtn.disabled = true;
-    try {
-      await onConfirm();
-      closeModal('confirmModal');
-    } catch (err) {
-      toast(err.message || 'حدث خطأ غير متوقع', 'error');
-    } finally {
-      newBtn.disabled = false;
-    }
-  });
-  openModal('confirmModal');
+  const wrap =
+    document.getElementById("toastWrap");
+
+  const toast =
+    document.createElement("div");
+
+  toast.className =
+    "toast " + type;
+
+  toast.textContent =
+    message;
+
+  wrap.appendChild(toast);
+
+  setTimeout(()=>{
+    toast.classList.add("show");
+  },20);
+
+  setTimeout(()=>{
+    toast.classList.remove("show");
+
+    setTimeout(()=>{
+      toast.remove();
+    },250);
+
+  },3500);
+
 }
 
-/* =========================================================
-   SIDEBAR (mobile)
-========================================================= */
-function toggleSidebar(open) {
-  document.getElementById('sidebar').classList.toggle('open', open);
-  document.getElementById('sidebarOverlay').classList.toggle('show', open);
+
+function formatPrice(value,currency){
+
+  const number =
+    Number(value || 0);
+
+  return number.toFixed(2) +
+    " " +
+    (currency || "EGP");
+
 }
 
+
 /* =========================================================
-   API LAYER
-========================================================= */
-async function apiRequest(path, { method = 'GET', body } = {}) {
-  let response;
-  try {
-    response = await fetch(API_BASE + path, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-key': adminKey
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined
-    });
-  } catch (networkErr) {
-    throw new Error('تعذّر الاتصال بالسيرفر. تحقق من الإنترنت أو حاول لاحقًا.');
+   API
+   ========================================================= */
+
+async function apiFetch(path,options={}){
+
+  const headers = {
+    ...(options.headers || {})
+  };
+
+  if(adminKey){
+
+    headers["x-admin-key"] =
+      adminKey;
+
   }
 
-  if (response.status === 401 || response.status === 403) {
-    toast('مفتاح الإدارة غير صحيح أو انتهت الجلسة', 'error');
-    logout();
-    throw new Error('unauthorized');
+  if(
+    options.body &&
+    !headers["Content-Type"]
+  ){
+
+    headers["Content-Type"] =
+      "application/json";
+
   }
+
+  const response =
+    await fetch(
+      API_BASE + path,
+      {
+        ...options,
+        headers
+      }
+    );
 
   let data = null;
-  try { data = await response.json(); } catch (e) { /* no JSON body */ }
 
-  if (!response.ok) {
-    throw new Error((data && (data.message || data.error)) || 'حدث خطأ في السيرفر (' + response.status + ')');
+  try{
+
+    data =
+      await response.json();
+
+  }catch(_){
+
+    data = null;
+
+  }
+
+  if(!response.ok){
+
+    throw new Error(
+      data?.message ||
+      data?.error ||
+      "حدث خطأ من السيرفر"
+    );
+
   }
 
   return data;
+
 }
 
-const api = {
-  get: (path) => apiRequest(path),
-  post: (path, body) => apiRequest(path, { method: 'POST', body }),
-  patch: (path, body) => apiRequest(path, { method: 'PATCH', body }),
-  del: (path) => apiRequest(path, { method: 'DELETE' })
-};
-
-/* Wraps a data-fetching function: shows toast on failure instead of throwing to caller UI. */
-async function safeLoad(fn, label) {
-  try {
-    return await fn();
-  } catch (err) {
-    if (err.message !== 'unauthorized') {
-      toast('تعذّر تحميل ' + label + ': ' + err.message, 'error');
-    }
-    return null;
-  }
-}
 
 /* =========================================================
-   LOGIN / LOGOUT
-========================================================= */
-async function login() {
-  const key = document.getElementById('adminKey').value.trim();
-  const errEl = document.getElementById('loginResult');
-  const btn = document.getElementById('loginBtn');
-  errEl.textContent = '';
+   LOGIN
+   ========================================================= */
 
-  if (!key) {
-    errEl.textContent = 'أدخل مفتاح الإدارة أولاً.';
+async function login(){
+
+  const input =
+    document.getElementById("adminKey");
+
+  const result =
+    document.getElementById("loginResult");
+
+  const button =
+    document.getElementById("loginBtn");
+
+  const key =
+    input.value.trim();
+
+  result.textContent = "";
+
+  if(!key){
+
+    result.textContent =
+      "أدخل مفتاح الإدارة";
+
     return;
+
   }
+
+  button.disabled = true;
+
+  button.textContent =
+    "جاري التحقق...";
 
   adminKey = key;
-  btn.disabled = true;
-  btn.textContent = 'جاري التحقق...';
 
-  try {
-    // Verify the key against a lightweight admin endpoint before entering the app.
-    await api.get('/admin/ping');
-    enterApp();
-  } catch (err) {
-    if (err.message === 'unauthorized') {
-      errEl.textContent = 'مفتاح الإدارة غير صحيح.';
-      adminKey = '';
-    } else {
-      // Backend might not expose /admin/ping — don't block access on that alone.
-      enterApp();
-    }
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'دخول لوحة التحكم';
+  try{
+
+    await apiFetch("/admin/stats");
+
+    document.getElementById(
+      "loginScreen"
+    ).style.display = "none";
+
+    document.getElementById(
+      "app"
+    ).style.display = "block";
+
+    showToast(
+      "تم تسجيل الدخول بنجاح"
+    );
+
+    await loadAll();
+
+  }catch(error){
+
+    adminKey = "";
+
+    result.textContent =
+      error.message ||
+      "مفتاح الإدارة غير صحيح";
+
+  }finally{
+
+    button.disabled = false;
+
+    button.textContent =
+      "دخول لوحة التحكم";
+
   }
+
 }
 
-function enterApp() {
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  document.getElementById('adminKey').value = '';
-  loadDashboard();
-}
-
-function logout() {
-  adminKey = '';
-  offers = []; games = []; categories = []; products = []; orders = []; users = []; withdrawals = [];
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
-}
 
 /* =========================================================
-   NAVIGATION
-========================================================= */
-const PAGE_TITLES = {
-  dashboard: 'لوحة التحكم',
-  offers: 'العروض والخصومات',
-  games: 'الألعاب',
-  categories: 'التصنيفات',
-  products: 'المنتجات',
-  orders: 'الطلبات',
-  users: 'المستخدمون',
-  earnings: 'الأرباح',
-  wallet: 'المحافظ والمعاملات',
-  withdrawals: 'طلبات السحب'
-};
+   LOGOUT
+   ========================================================= */
 
-function showPage(pageId, button) {
-  document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
-  document.getElementById(pageId).classList.add('active');
+function logout(){
 
-  document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
-  if (button) {
-    button.classList.add('active');
-  } else {
-    const match = Array.from(document.querySelectorAll('.menu-item'))
-      .find(item => item.getAttribute('onclick') && item.getAttribute('onclick').includes("'" + pageId + "'"));
-    if (match) match.classList.add('active');
-  }
+  adminKey = "";
 
-  document.getElementById('pageTitle').textContent = PAGE_TITLES[pageId] || 'Gameora Admin';
-  toggleSidebar(false);
+  document.getElementById(
+    "app"
+  ).style.display = "none";
 
-  const loaders = {
-    offers: loadOffers,
-    games: loadGamesAndCategories,
-    categories: loadGamesAndCategories,
-    products: loadProducts,
-    orders: loadOrders,
-    users: loadUsers,
-    earnings: loadEarnings,
-    wallet: loadWallet,
-    withdrawals: loadWithdrawals
-  };
-  if (loaders[pageId]) loaders[pageId]();
+  document.getElementById(
+    "loginScreen"
+  ).style.display = "flex";
+
+  document.getElementById(
+    "adminKey"
+  ).value = "";
+
 }
+
 
 /* =========================================================
-   DASHBOARD
-========================================================= */
-async function loadDashboard() {
-  const stats = await safeLoad(() => api.get('/admin/stats'), 'الإحصائيات');
-  const statCards = document.querySelectorAll('#dashboardStats .stat-value');
-  if (stats) {
-    statCards[0].textContent = formatNumber(stats.totalUsers);
-    statCards[1].textContent = formatNumber(stats.totalProducts);
-    statCards[2].textContent = formatNumber(stats.totalOrders);
-    statCards[3].textContent = formatMoney(stats.gameoraEarnings);
-  } else {
-    statCards.forEach(el => el.textContent = '—');
-  }
+   LOAD ALL
+   ========================================================= */
 
-  const data = await safeLoad(() => api.get('/admin/offers'), 'العروض');
-  offers = Array.isArray(data) ? data : (data && data.offers) || [];
-  updateSidebarCounts();
-  renderRecentOffers();
+async function loadAll(){
+
+  await Promise.allSettled([
+
+    loadStats(),
+
+    loadOffers(),
+
+    loadGames(),
+
+    loadCategories()
+
+  ]);
+
 }
 
-function renderRecentOffers() {
-  const el = document.getElementById('recentOffers');
-  if (!offers.length) {
-    el.innerHTML = '<div class="empty-state">لا توجد عروض حاليًا.</div>';
+
+/* =========================================================
+   STATS
+   ========================================================= */
+
+async function loadStats(){
+
+  try{
+
+    const data =
+      await apiFetch(
+        "/admin/stats"
+      );
+
+    document.getElementById(
+      "statUsers"
+    ).textContent =
+      data.users ?? 0;
+
+    document.getElementById(
+      "statProducts"
+    ).textContent =
+      data.products ?? 0;
+
+    document.getElementById(
+      "statOrders"
+    ).textContent =
+      data.orders ?? 0;
+
+    document.getElementById(
+      "statEarnings"
+    ).textContent =
+      data.earnings ?? 0;
+
+    document.getElementById(
+      "countUsers"
+    ).textContent =
+      data.users ?? 0;
+
+    document.getElementById(
+      "countProducts"
+    ).textContent =
+      data.products ?? 0;
+
+    document.getElementById(
+      "countOrders"
+    ).textContent =
+      data.orders ?? 0;
+
+    document.getElementById(
+      "countOffers"
+    ).textContent =
+      data.offers ?? 0;
+
+  }catch(error){
+
+    console.error(error);
+
+  }
+
+}
+
+
+/* =========================================================
+   GAMES
+   ========================================================= */
+
+async function loadGames(){
+
+  const body =
+    document.getElementById(
+      "gamesTableBody"
+    );
+
+  try{
+
+    const data =
+      await apiFetch(
+        "/games"
+      );
+
+    games =
+      Array.isArray(data)
+        ? data
+        : (
+            data.games ||
+            data.data ||
+            []
+          );
+
+    document.getElementById(
+      "countGames"
+    ).textContent =
+      games.length;
+
+    renderGames();
+
+    populateGameSelect();
+
+  }catch(error){
+
+    console.error(error);
+
+    body.innerHTML =
+      `<tr>
+        <td colspan="3">
+          <div class="empty-state">
+            تعذر تحميل الألعاب
+          </div>
+        </td>
+      </tr>`;
+
+    populateGameSelect();
+
+  }
+
+}
+
+
+function renderGames(){
+
+  const body =
+    document.getElementById(
+      "gamesTableBody"
+    );
+
+  if(!games.length){
+
+    body.innerHTML =
+      `<tr>
+        <td colspan="3">
+          <div class="empty-state">
+            لا توجد ألعاب حاليًا
+          </div>
+        </td>
+      </tr>`;
+
     return;
+
   }
-  el.innerHTML = offers.slice(0, 3).map(o => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
-      <div>
-        <div style="font-weight:700">${escapeHtml(o.title)}</div>
-        <div style="color:var(--muted);font-size:13px">${escapeHtml(o.gameId || '')}</div>
-      </div>
-      <div class="new-price">${formatMoney(o.finalPrice, o.currency)}</div>
-    </div>
-  `).join('');
+
+  body.innerHTML =
+    games.map(game => {
+
+      return `
+        <tr>
+
+          <td>
+            ${escapeHtml(game.name)}
+          </td>
+
+          <td>
+            ${escapeHtml(game.status || "active")}
+          </td>
+
+          <td>
+            ${escapeHtml(game.id)}
+          </td>
+
+        </tr>
+      `;
+
+    }).join("");
+
 }
 
-function updateSidebarCounts() {
-  setCount('countOffers', offers.length);
-  setCount('countGames', games.length);
-  setCount('countCategories', categories.length);
-  setCount('countProducts', products.length);
-  setCount('countOrders', orders.length);
-  setCount('countUsers', users.length);
-  setCount('countWithdrawals', withdrawals.filter(w => w.status === 'pending').length);
+
+function populateGameSelect(){
+
+  const select =
+    document.getElementById(
+      "offerGameId"
+    );
+
+  if(!games.length){
+
+    select.innerHTML =
+      `<option value="">
+        لا توجد ألعاب متاحة
+      </option>`;
+
+    return;
+
+  }
+
+  select.innerHTML =
+    `<option value="">
+      اختر اللعبة
+    </option>` +
+
+    games.map(game => {
+
+      return `
+        <option value="${escapeHtml(game.id)}">
+          ${escapeHtml(game.name)}
+        </option>
+      `;
+
+    }).join("");
+
 }
-function setCount(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = formatNumber(value);
+
+
+/* =========================================================
+   CATEGORIES
+   ========================================================= */
+
+async function loadCategories(){
+
+  const body =
+    document.getElementById(
+      "categoriesTableBody"
+    );
+
+  try{
+
+    const data =
+      await apiFetch(
+        "/categories"
+      );
+
+    categories =
+      Array.isArray(data)
+        ? data
+        : (
+            data.categories ||
+            data.data ||
+            []
+          );
+
+    document.getElementById(
+      "countCategories"
+    ).textContent =
+      categories.length;
+
+    renderCategories();
+
+  }catch(error){
+
+    console.error(error);
+
+    body.innerHTML =
+      `<tr>
+        <td colspan="2">
+          <div class="empty-state">
+            تعذر تحميل التصنيفات
+          </div>
+        </td>
+      </tr>`;
+
+  }
+
 }
+
+
+function renderCategories(){
+
+  const body =
+    document.getElementById(
+      "categoriesTableBody"
+    );
+
+  if(!categories.length){
+
+    body.innerHTML =
+      `<tr>
+        <td colspan="2">
+          <div class="empty-state">
+            لا توجد تصنيفات حاليًا
+          </div>
+        </td>
+      </tr>`;
+
+    return;
+
+  }
+
+  body.innerHTML =
+    categories.map(category => {
+
+      return `
+        <tr>
+
+          <td>
+            ${escapeHtml(category.name)}
+          </td>
+
+          <td>
+            ${escapeHtml(category.status || "active")}
+          </td>
+
+        </tr>
+      `;
+
+    }).join("");
+
+}
+
 
 /* =========================================================
    OFFERS
-========================================================= */
-async function loadOffers() {
-  const grid = document.getElementById('offersGrid');
-  grid.innerHTML = '<div class="loading-state">جاري التحميل...</div>';
-  const data = await safeLoad(() => api.get('/admin/offers'), 'العروض');
-  offers = Array.isArray(data) ? data : (data && data.offers) || [];
-  updateSidebarCounts();
-  renderOffers();
+   ========================================================= */
+
+async function loadOffers(){
+
+  const grid =
+    document.getElementById(
+      "offersGrid"
+    );
+
+  const recent =
+    document.getElementById(
+      "recentOffers"
+    );
+
+  try{
+
+    const data =
+      await apiFetch(
+        "/admin/offers"
+      );
+
+    offers =
+      data.offers || [];
+
+    document.getElementById(
+      "countOffers"
+    ).textContent =
+      offers.length;
+
+    renderOffers();
+
+    renderRecentOffers();
+
+  }catch(error){
+
+    console.error(error);
+
+    grid.innerHTML =
+      `<div class="empty-state">
+        تعذر تحميل العروض
+      </div>`;
+
+    recent.innerHTML =
+      `<div class="empty-state">
+        تعذر تحميل العروض
+      </div>`;
+
+  }
+
 }
 
-function renderOffers() {
-  const grid = document.getElementById('offersGrid');
-  if (!offers.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="big">🏷️</div>لا توجد عروض حاليًا. ابدأ بإضافة أول عرض.</div>';
+
+function getGameName(gameId){
+
+  const game =
+    games.find(
+      item =>
+        String(item.id) ===
+        String(gameId)
+    );
+
+  return game
+    ? game.name
+    : gameId || "غير محدد";
+
+}
+
+
+function renderOffers(){
+
+  const grid =
+    document.getElementById(
+      "offersGrid"
+    );
+
+  if(!offers.length){
+
+    grid.innerHTML =
+      `<div
+        class="empty-state"
+        style="grid-column:1/-1"
+      >
+        لا توجد عروض حاليًا.
+      </div>`;
+
     return;
+
   }
-  grid.innerHTML = offers.map(o => `
-    <div class="offer">
-      <div class="offer-image" style="${o.imageUrl ? `background-image:url('${escapeAttr(o.imageUrl)}')` : ''}">${o.imageUrl ? '' : escapeHtml((o.title || '?')[0])}</div>
-      <div class="offer-body">
-        <div class="offer-title">${escapeHtml(o.title)}</div>
-        <div class="offer-game">${escapeHtml(o.gameId || '')}</div>
-        <div class="offer-price">
-          <span class="old-price">${formatMoney(o.oldPrice, o.currency)}</span>
-          <span class="new-price">${formatMoney(o.finalPrice, o.currency)}</span>
+
+  grid.innerHTML =
+    offers.map(offer => {
+
+      const image =
+        offer.imageUrl
+          ? `style="background-image:url('${escapeHtml(offer.imageUrl)}')"`
+          : "";
+
+      return `
+        <div class="offer">
+
+          <div
+            class="offer-image"
+            ${image}
+          >
+            ${
+              offer.imageUrl
+                ? ""
+                : "Gameora"
+            }
+          </div>
+
+          <div class="offer-body">
+
+            <div class="offer-title">
+              ${escapeHtml(offer.title)}
+            </div>
+
+            <div class="offer-game">
+              ${escapeHtml(
+                getGameName(offer.gameId)
+              )}
+            </div>
+
+            ${
+              offer.description
+                ? `
+                  <div class="offer-description">
+                    ${escapeHtml(
+                      offer.description
+                    )}
+                  </div>
+                `
+                : ""
+            }
+
+            <div class="offer-price">
+
+              <div class="old-price">
+                ${formatPrice(
+                  offer.oldPrice,
+                  offer.currency
+                )}
+              </div>
+
+              <div class="new-price">
+                ${formatPrice(
+                  offer.finalPrice,
+                  offer.currency
+                )}
+              </div>
+
+            </div>
+
+            <div class="discount">
+              ${Number(
+                offer.discountPercent || 0
+              )}% خصم
+            </div>
+
+            <div
+              style="
+                margin-top:8px;
+                font-size:12px;
+                color:var(--muted)
+              "
+            >
+              الحالة:
+              ${
+                offer.status === "active"
+                  ? "نشط"
+                  : "متوقف"
+              }
+            </div>
+
+            <div class="offer-actions">
+
+              <button
+                class="small-btn toggle"
+                onclick="toggleOffer('${escapeHtml(offer.id)}')"
+              >
+                ${
+                  offer.status === "active"
+                    ? "تعطيل"
+                    : "تفعيل"
+                }
+              </button>
+
+              <button
+                class="small-btn delete"
+                onclick="deleteOffer('${escapeHtml(offer.id)}')"
+              >
+                حذف
+              </button>
+
+            </div>
+
+          </div>
+
         </div>
-        <div class="offer-actions">
-          <button class="small-btn" onclick="editOffer('${o.id}')">تعديل</button>
-          <button class="small-btn delete" onclick="deleteOffer('${o.id}')">حذف</button>
+      `;
+
+    }).join("");
+
+}
+
+
+function renderRecentOffers(){
+
+  const container =
+    document.getElementById(
+      "recentOffers"
+    );
+
+  if(!offers.length){
+
+    container.innerHTML =
+      `<div class="empty-state">
+        لا توجد عروض حاليًا.
+      </div>`;
+
+    return;
+
+  }
+
+  const latest =
+    offers.slice(0,3);
+
+  container.innerHTML =
+    latest.map(offer => {
+
+      return `
+        <div
+          style="
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            padding:13px 0;
+            border-bottom:1px solid var(--border)
+          "
+        >
+
+          <div>
+
+            <div style="font-weight:700">
+              ${escapeHtml(
+                offer.title
+              )}
+            </div>
+
+            <div
+              style="
+                color:var(--muted);
+                font-size:13px;
+                margin-top:4px
+              "
+            >
+              ${escapeHtml(
+                getGameName(offer.gameId)
+              )}
+            </div>
+
+          </div>
+
+          <div
+            style="
+              color:var(--green-dark);
+              font-weight:800
+            "
+          >
+            ${formatPrice(
+              offer.finalPrice,
+              offer.currency
+            )}
+          </div>
+
         </div>
-      </div>
-    </div>
-  `).join('');
+      `;
+
+    }).join("");
+
 }
 
-function openOfferModal() {
-  editingOfferId = null;
-  document.getElementById('offerModalTitle').textContent = 'إضافة عرض جديد';
-  ['offerTitle','offerGame','offerOldPrice','offerDiscount','offerImage','offerStart','offerEnd','offerDescription']
-    .forEach(id => document.getElementById(id).value = '');
-  document.getElementById('offerCurrency').value = 'USD';
-  document.getElementById('offerResult').style.display = 'none';
-  openModal('offerModal');
-}
-
-function editOffer(id) {
-  const o = offers.find(x => String(x.id) === String(id));
-  if (!o) return;
-  editingOfferId = id;
-  document.getElementById('offerModalTitle').textContent = 'تعديل العرض';
-  document.getElementById('offerTitle').value = o.title || '';
-  document.getElementById('offerGame').value = o.gameId || '';
-  document.getElementById('offerOldPrice').value = o.oldPrice || '';
-  document.getElementById('offerDiscount').value = o.discountPercent || '';
-  document.getElementById('offerCurrency').value = o.currency || 'USD';
-  document.getElementById('offerImage').value = o.imageUrl || '';
-  document.getElementById('offerStart').value = o.startAt || '';
-  document.getElementById('offerEnd').value = o.endAt || '';
-  document.getElementById('offerDescription').value = o.description || '';
-  document.getElementById('offerResult').style.display = 'none';
-  openModal('offerModal');
-}
-
-function showFormResult(elId, message, isError) {
-  const el = document.getElementById(elId);
-  el.style.display = 'block';
-  el.style.color = isError ? 'var(--danger)' : 'inherit';
-  el.textContent = message;
-}
-
-async function saveOffer() {
-  const title = document.getElementById('offerTitle').value.trim();
-  const gameId = document.getElementById('offerGame').value;
-  const oldPrice = Number(document.getElementById('offerOldPrice').value);
-  const discountPercent = Number(document.getElementById('offerDiscount').value || 0);
-  const currency = document.getElementById('offerCurrency').value;
-  const imageUrl = document.getElementById('offerImage').value.trim();
-  const startAt = document.getElementById('offerStart').value;
-  const endAt = document.getElementById('offerEnd').value;
-  const description = document.getElementById('offerDescription').value.trim();
-
-  if (!title || !gameId || !oldPrice) {
-    showFormResult('offerResult', 'أكمل اسم العرض واللعبة والسعر الأصلي.', true);
-    return;
-  }
-  if (discountPercent < 0 || discountPercent > 100) {
-    showFormResult('offerResult', 'نسبة الخصم يجب أن تكون بين 0 و100.', true);
-    return;
-  }
-
-  const finalPrice = +(oldPrice - (oldPrice * discountPercent / 100)).toFixed(2);
-  const payload = { title, gameId, oldPrice, discountPercent, finalPrice, currency, imageUrl: imageUrl || null, description: description || null, startAt: startAt || null, endAt: endAt || null };
-
-  const btn = document.getElementById('offerSaveBtn');
-  btn.disabled = true;
-  showFormResult('offerResult', 'جاري الحفظ...', false);
-
-  try {
-    if (editingOfferId) {
-      await api.patch('/admin/offers/' + editingOfferId, payload);
-      toast('تم تحديث العرض بنجاح', 'success');
-    } else {
-      await api.post('/admin/offers', payload);
-      toast('تم إضافة العرض بنجاح', 'success');
-    }
-    closeModal('offerModal');
-    loadOffers();
-  } catch (err) {
-    showFormResult('offerResult', err.message, true);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-function deleteOffer(id) {
-  const o = offers.find(x => String(x.id) === String(id));
-  confirmAction({
-    title: 'حذف العرض',
-    message: `هل أنت متأكد من حذف "${o ? o.title : 'هذا العرض'}"؟ لا يمكن التراجع عن هذا الإجراء.`,
-    confirmLabel: 'حذف نهائي',
-    onConfirm: async () => {
-      await api.del('/admin/offers/' + id);
-      toast('تم حذف العرض', 'success');
-      loadOffers();
-    }
-  });
-}
 
 /* =========================================================
-   GAMES & CATEGORIES
-========================================================= */
-async function loadGamesAndCategories() {
-  const [gamesData, categoriesData] = await Promise.all([
-    safeLoad(() => api.get('/admin/games'), 'الألعاب'),
-    safeLoad(() => api.get('/admin/categories'), 'التصنيفات')
-  ]);
-  games = Array.isArray(gamesData) ? gamesData : (gamesData && gamesData.games) || [];
-  categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData && categoriesData.categories) || [];
-  updateSidebarCounts();
-  renderGames();
-  renderCategories();
-  populateGameCategoryOptions();
-}
+   OFFER MODAL
+   ========================================================= */
 
-function populateGameCategoryOptions() {
-  const select = document.getElementById('gameCategory');
-  const current = select.value;
-  select.innerHTML = '<option value="">اختر تصنيفًا</option>' +
-    categories.map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.name)}</option>`).join('');
-  select.value = current;
-}
+function openOfferModal(){
 
-function renderGames() {
-  const body = document.getElementById('gamesTableBody');
-  if (!games.length) {
-    body.innerHTML = `<tr><td colspan="5"><div class="empty-state">لا توجد ألعاب مضافة بعد.</div></td></tr>`;
-    return;
-  }
-  body.innerHTML = games.map(g => `
-    <tr>
-      <td style="white-space:normal">${escapeHtml(g.name)}</td>
-      <td>${escapeHtml(categoryName(g.categoryId))}</td>
-      <td>${formatNumber(g.productsCount || 0)}</td>
-      <td><span class="status ${g.active === false ? 'off' : 'active'}">${g.active === false ? 'معطلة' : 'مفعّلة'}</span></td>
-      <td class="row-actions">
-        <button class="icon-btn" onclick="editGame('${g.id}')">تعديل</button>
-        <button class="icon-btn ${g.active === false ? 'ok' : 'warn'}" onclick="toggleGameActive('${g.id}', ${g.active === false})">${g.active === false ? 'تفعيل' : 'تعطيل'}</button>
-        <button class="icon-btn danger" onclick="deleteGame('${g.id}')">حذف</button>
-      </td>
-    </tr>
-  `).join('');
-}
+  document.getElementById(
+    "offerModal"
+  ).classList.add("show");
 
-function categoryName(id) {
-  const c = categories.find(x => String(x.id) === String(id));
-  return c ? c.name : '—';
-}
+  if(!games.length){
 
-function openGameModal() {
-  editingGameId = null;
-  document.getElementById('gameModalTitle').textContent = 'إضافة لعبة';
-  document.getElementById('gameName').value = '';
-  document.getElementById('gameImage').value = '';
-  document.getElementById('gameCategory').value = '';
-  document.getElementById('gameResult').style.display = 'none';
-  openModal('gameModal');
-}
+    loadGames();
 
-function editGame(id) {
-  const g = games.find(x => String(x.id) === String(id));
-  if (!g) return;
-  editingGameId = id;
-  document.getElementById('gameModalTitle').textContent = 'تعديل اللعبة';
-  document.getElementById('gameName').value = g.name || '';
-  document.getElementById('gameImage').value = g.imageUrl || '';
-  document.getElementById('gameCategory').value = g.categoryId || '';
-  document.getElementById('gameResult').style.display = 'none';
-  openModal('gameModal');
-}
-
-async function saveGame() {
-  const name = document.getElementById('gameName').value.trim();
-  const categoryId = document.getElementById('gameCategory').value;
-  const imageUrl = document.getElementById('gameImage').value.trim();
-
-  if (!name) {
-    showFormResult('gameResult', 'أدخل اسم اللعبة.', true);
-    return;
   }
 
-  const payload = { name, categoryId: categoryId || null, imageUrl: imageUrl || null };
-
-  try {
-    if (editingGameId) {
-      await api.patch('/admin/games/' + editingGameId, payload);
-      toast('تم تحديث اللعبة', 'success');
-    } else {
-      await api.post('/admin/games', payload);
-      toast('تم إضافة اللعبة', 'success');
-    }
-    closeModal('gameModal');
-    loadGamesAndCategories();
-  } catch (err) {
-    showFormResult('gameResult', err.message, true);
-  }
 }
 
-function toggleGameActive(id, makeActive) {
-  confirmAction({
-    title: makeActive ? 'تفعيل اللعبة' : 'تعطيل اللعبة',
-    message: makeActive ? 'ستظهر اللعبة للمستخدمين مرة أخرى.' : 'لن تظهر هذه اللعبة للمستخدمين حتى يتم تفعيلها مجددًا.',
-    confirmLabel: makeActive ? 'تفعيل' : 'تعطيل',
-    danger: !makeActive,
-    onConfirm: async () => {
-      await api.patch('/admin/games/' + id, { active: makeActive });
-      toast(makeActive ? 'تم تفعيل اللعبة' : 'تم تعطيل اللعبة', 'success');
-      loadGamesAndCategories();
-    }
-  });
+
+function closeOfferModal(){
+
+  document.getElementById(
+    "offerModal"
+  ).classList.remove("show");
+
 }
 
-function deleteGame(id) {
-  confirmAction({
-    title: 'حذف اللعبة',
-    message: 'حذف اللعبة سيؤثر على المنتجات والعروض المرتبطة بها. هل تريد المتابعة؟',
-    confirmLabel: 'حذف نهائي',
-    onConfirm: async () => {
-      await api.del('/admin/games/' + id);
-      toast('تم حذف اللعبة', 'success');
-      loadGamesAndCategories();
-    }
-  });
-}
-
-function renderCategories() {
-  const body = document.getElementById('categoriesTableBody');
-  if (!categories.length) {
-    body.innerHTML = `<tr><td colspan="3"><div class="empty-state">لا توجد تصنيفات بعد.</div></td></tr>`;
-    return;
-  }
-  body.innerHTML = categories.map(c => `
-    <tr>
-      <td>${escapeHtml(c.name)}</td>
-      <td>${formatNumber(games.filter(g => String(g.categoryId) === String(c.id)).length)}</td>
-      <td class="row-actions">
-        <button class="icon-btn" onclick="editCategory('${c.id}')">تعديل</button>
-        <button class="icon-btn danger" onclick="deleteCategory('${c.id}')">حذف</button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function openCategoryModal() {
-  editingCategoryId = null;
-  document.getElementById('categoryModalTitle').textContent = 'إضافة تصنيف';
-  document.getElementById('categoryName').value = '';
-  document.getElementById('categoryResult').style.display = 'none';
-  openModal('categoryModal');
-}
-
-function editCategory(id) {
-  const c = categories.find(x => String(x.id) === String(id));
-  if (!c) return;
-  editingCategoryId = id;
-  document.getElementById('categoryModalTitle').textContent = 'تعديل التصنيف';
-  document.getElementById('categoryName').value = c.name || '';
-  document.getElementById('categoryResult').style.display = 'none';
-  openModal('categoryModal');
-}
-
-async function saveCategory() {
-  const name = document.getElementById('categoryName').value.trim();
-  if (!name) {
-    showFormResult('categoryResult', 'أدخل اسم التصنيف.', true);
-    return;
-  }
-  try {
-    if (editingCategoryId) {
-      await api.patch('/admin/categories/' + editingCategoryId, { name });
-      toast('تم تحديث التصنيف', 'success');
-    } else {
-      await api.post('/admin/categories', { name });
-      toast('تم إضافة التصنيف', 'success');
-    }
-    closeModal('categoryModal');
-    loadGamesAndCategories();
-  } catch (err) {
-    showFormResult('categoryResult', err.message, true);
-  }
-}
-
-function deleteCategory(id) {
-  confirmAction({
-    title: 'حذف التصنيف',
-    message: 'حذف التصنيف لن يحذف الألعاب المرتبطة به، لكنها ستصبح بدون تصنيف.',
-    confirmLabel: 'حذف نهائي',
-    onConfirm: async () => {
-      await api.del('/admin/categories/' + id);
-      toast('تم حذف التصنيف', 'success');
-      loadGamesAndCategories();
-    }
-  });
-}
 
 /* =========================================================
-   PRODUCTS
-========================================================= */
-async function loadProducts() {
-  const data = await safeLoad(() => api.get('/admin/products'), 'المنتجات');
-  products = Array.isArray(data) ? data : (data && data.products) || [];
-  updateSidebarCounts();
-  renderProducts();
+   SAVE OFFER
+   ========================================================= */
+
+async function saveOffer(){
+
+  const button =
+    document.getElementById(
+      "saveOfferBtn"
+    );
+
+  const title =
+    document.getElementById(
+      "offerTitle"
+    ).value.trim();
+
+  const gameId =
+    document.getElementById(
+      "offerGameId"
+    ).value;
+
+  const oldPrice =
+    Number(
+      document.getElementById(
+        "offerOldPrice"
+      ).value
+    );
+
+  const discountPercent =
+    Number(
+      document.getElementById(
+        "offerDiscount"
+      ).value
+    );
+
+  const currency =
+    document.getElementById(
+      "offerCurrency"
+    ).value;
+
+  const imageUrl =
+    document.getElementById(
+      "offerImage"
+    ).value.trim();
+
+  const description =
+    document.getElementById(
+      "offerDescription"
+    ).value.trim();
+
+  const startInput =
+    document.getElementById(
+      "offerStartAt"
+    ).value;
+
+  const endInput =
+    document.getElementById(
+      "offerEndAt"
+    ).value;
+
+
+  if(!title){
+
+    showToast(
+      "اسم العرض مطلوب",
+      "error"
+    );
+
+    return;
+
+  }
+
+  if(!gameId){
+
+    showToast(
+      "اختر اللعبة",
+      "error"
+    );
+
+    return;
+
+  }
+
+  if(
+    !Number.isFinite(oldPrice) ||
+    oldPrice <= 0
+  ){
+
+    showToast(
+      "السعر الأصلي غير صحيح",
+      "error"
+    );
+
+    return;
+
+  }
+
+  if(
+    !Number.isFinite(discountPercent) ||
+    discountPercent < 0 ||
+    discountPercent > 100
+  ){
+
+    showToast(
+      "نسبة الخصم يجب أن تكون بين 0 و100",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  const payload = {
+
+    title,
+
+    gameId,
+
+    oldPrice,
+
+    discountPercent,
+
+    currency,
+
+    imageUrl:
+      imageUrl || null,
+
+    description:
+      description || null,
+
+    startAt:
+      startInput
+        ? new Date(
+            startInput
+          ).toISOString()
+        : null,
+
+    endAt:
+      endInput
+        ? new Date(
+            endInput
+          ).toISOString()
+        : null
+
+  };
+
+
+  button.disabled = true;
+
+  button.textContent =
+    "جاري الحفظ...";
+
+
+  try{
+
+    const data =
+      await apiFetch(
+        "/admin/offers",
+        {
+          method:"POST",
+          body:JSON.stringify(
+            payload
+          )
+        }
+      );
+
+
+    if(!data.ok){
+
+      throw new Error(
+        data.message ||
+        "فشل إنشاء العرض"
+      );
+
+    }
+
+
+    showToast(
+      "تم إضافة العرض بنجاح"
+    );
+
+    closeOfferModal();
+
+    clearOfferForm();
+
+    await loadOffers();
+
+    await loadStats();
+
+    showPageById(
+      "offers"
+    );
+
+
+  }catch(error){
+
+    console.error(error);
+
+    showToast(
+      error.message ||
+      "تعذّر الاتصال بالسيرفر",
+            "error"
+    );
+
+  }finally{
+
+    button.disabled = false;
+
+    button.textContent =
+      "حفظ العرض";
+
+  }
+
 }
 
-function renderProducts() {
-  const body = document.getElementById('productsTableBody');
-  const search = document.getElementById('productsSearch').value.trim().toLowerCase();
-  const filter = document.getElementById('productsFilter').value;
 
-  let rows = products;
-  if (filter) rows = rows.filter(p => p.status === filter);
-  if (search) rows = rows.filter(p =>
-    (p.title || '').toLowerCase().includes(search) || (p.sellerName || '').toLowerCase().includes(search)
+/* =========================================================
+   CLEAR FORM
+   ========================================================= */
+
+function clearOfferForm(){
+
+  document.getElementById("offerTitle").value = "";
+
+  document.getElementById("offerGameId").value = "";
+
+  document.getElementById("offerOldPrice").value = "";
+
+  document.getElementById("offerDiscount").value = "3";
+
+  document.getElementById("offerCurrency").value = "EGP";
+
+  document.getElementById("offerImage").value = "";
+
+  document.getElementById("offerStartAt").value = "";
+
+  document.getElementById("offerEndAt").value = "";
+
+  document.getElementById("offerDescription").value = "";
+
+}
+
+
+/* =========================================================
+   TOGGLE OFFER
+   ========================================================= */
+
+async function toggleOffer(id){
+
+  try{
+
+    const data =
+      await apiFetch(
+        "/admin/offers/" +
+        encodeURIComponent(id) +
+        "/toggle",
+        {
+          method:"POST"
+        }
+      );
+
+    if(!data.ok){
+
+      throw new Error(
+        data.message ||
+        "فشل تغيير حالة العرض"
+      );
+
+    }
+
+    showToast(
+      data.status === "active"
+        ? "تم تفعيل العرض"
+        : "تم تعطيل العرض"
+    );
+
+    await loadOffers();
+
+    await loadStats();
+
+  }catch(error){
+
+    showToast(
+      error.message ||
+      "حدث خطأ",
+      "error"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   DELETE OFFER
+   ========================================================= */
+
+async function deleteOffer(id){
+
+  if(
+    !confirm(
+      "هل أنت متأكد من حذف هذا العرض؟"
+    )
+  ){
+
+    return;
+
+  }
+
+  try{
+
+    const data =
+      await apiFetch(
+        "/admin/offers/" +
+        encodeURIComponent(id),
+        {
+          method:"DELETE"
+        }
+      );
+
+    if(!data.ok){
+
+      throw new Error(
+        data.message ||
+        "فشل حذف العرض"
+      );
+
+    }
+
+    showToast(
+      "تم حذف العرض"
+    );
+
+    await loadOffers();
+
+    await loadStats();
+
+  }catch(error){
+
+    showToast(
+      error.message ||
+      "حدث خطأ",
+      "error"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+const pageTitles = {
+
+  dashboard:"لوحة التحكم",
+
+  offers:"العروض والخصومات",
+
+  games:"الألعاب",
+
+  categories:"التصنيفات",
+
+  products:"المنتجات",
+
+  orders:"الطلبات",
+
+  users:"المستخدمون",
+
+  earnings:"الأرباح",
+
+  wallet:"المحافظ والمعاملات",
+
+  withdrawals:"طلبات السحب"
+
+};
+
+
+function showPage(pageId,button){
+
+  document.querySelectorAll(
+    ".page"
+  ).forEach(page => {
+
+    page.classList.remove(
+      "active"
+    );
+
+  });
+
+
+  const page =
+    document.getElementById(
+      pageId
+    );
+
+  if(page){
+
+    page.classList.add(
+      "active"
+    );
+
+  }
+
+
+  document.querySelectorAll(
+    ".menu-item"
+  ).forEach(item => {
+
+    item.classList.remove(
+      "active"
+    );
+
+  });
+
+
+  if(button){
+
+    button.classList.add(
+      "active"
+    );
+
+  }
+
+
+  document.getElementById(
+    "pageTitle"
+  ).textContent =
+    pageTitles[pageId] ||
+    "لوحة التحكم";
+
+
+  toggleSidebar(false);
+
+}
+
+
+function showPageById(pageId){
+
+  showPage(
+    pageId,
+    null
   );
 
-  if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="6"><div class="empty-state">لا توجد منتجات مطابقة.</div></td></tr>`;
-    return;
-  }
-
-  const statusLabels = { active: 'نشط', pending: 'قيد المراجعة', banned: 'محظور' };
-
-  body.innerHTML = rows.map(p => `
-    <tr>
-      <td style="white-space:normal">${escapeHtml(p.title)}</td>
-      <td>${escapeHtml(p.gameId || '—')}</td>
-      <td>${escapeHtml(p.sellerName || '—')}</td>
-      <td>${formatMoney(p.price, p.currency)}</td>
-      <td><span class="status ${p.status}">${statusLabels[p.status] || p.status || '—'}</span></td>
-      <td class="row-actions">
-        ${p.status !== 'active' ? `<button class="icon-btn ok" onclick="setProductStatus('${p.id}','active')">قبول</button>` : ''}
-        ${p.status !== 'banned' ? `<button class="icon-btn warn" onclick="setProductStatus('${p.id}','banned')">حظر</button>` : `<button class="icon-btn ok" onclick="setProductStatus('${p.id}','active')">رفع الحظر</button>`}
-        <button class="icon-btn danger" onclick="deleteProduct('${p.id}')">حذف</button>
-      </td>
-    </tr>
-  `).join('');
 }
 
-function setProductStatus(id, status) {
-  const labels = { active: 'قبول المنتج', banned: 'حظر المنتج' };
-  confirmAction({
-    title: labels[status] || 'تحديث الحالة',
-    message: status === 'banned' ? 'لن يظهر هذا المنتج للمستخدمين بعد حظره.' : 'سيظهر هذا المنتج للمستخدمين.',
-    confirmLabel: status === 'banned' ? 'حظر' : 'تأكيد',
-    danger: status === 'banned',
-    onConfirm: async () => {
-      await api.patch('/admin/products/' + id, { status });
-      toast('تم تحديث حالة المنتج', 'success');
-      loadProducts();
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+function toggleSidebar(open){
+
+  const sidebar =
+    document.getElementById(
+      "sidebar"
+    );
+
+  const overlay =
+    document.getElementById(
+      "sidebarOverlay"
+    );
+
+  if(open){
+
+    sidebar.classList.add(
+      "open"
+    );
+
+    overlay.classList.add(
+      "show"
+    );
+
+  }else{
+
+    sidebar.classList.remove(
+      "open"
+    );
+
+    overlay.classList.remove(
+      "show"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   MODAL BACKDROP
+   ========================================================= */
+
+document.getElementById(
+  "offerModal"
+).addEventListener(
+  "click",
+  function(event){
+
+    if(
+      event.target === this
+    ){
+
+      closeOfferModal();
+
     }
-  });
-}
 
-function deleteProduct(id) {
-  confirmAction({
-    title: 'حذف المنتج',
-    message: 'هل أنت متأكد من حذف هذا المنتج نهائيًا؟',
-    confirmLabel: 'حذف نهائي',
-    onConfirm: async () => {
-      await api.del('/admin/products/' + id);
-      toast('تم حذف المنتج', 'success');
-      loadProducts();
-    }
-  });
-}
-
-/* =========================================================
-   ORDERS
-========================================================= */
-async function loadOrders() {
-  const data = await safeLoad(() => api.get('/admin/orders'), 'الطلبات');
-  orders = Array.isArray(data) ? data : (data && data.orders) || [];
-  updateSidebarCounts();
-  renderOrders();
-}
-
-function renderOrders() {
-  const body = document.getElementById('ordersTableBody');
-  const search = document.getElementById('ordersSearch').value.trim().toLowerCase();
-  const filter = document.getElementById('ordersFilter').value;
-
-  let rows = orders;
-  if (filter) rows = rows.filter(o => o.status === filter);
-  if (search) rows = rows.filter(o =>
-    String(o.id).toLowerCase().includes(search) || (o.buyerName || '').toLowerCase().includes(search)
-  );
-
-  if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="7"><div class="empty-state">لا توجد طلبات مطابقة.</div></td></tr>`;
-    return;
   }
+);
 
-  const statusLabels = { pending: 'قيد التنفيذ', completed: 'مكتمل', disputed: 'نزاع', cancelled: 'ملغي' };
-
-  body.innerHTML = rows.map(o => `
-    <tr>
-      <td>#${escapeHtml(String(o.id).slice(-6))}</td>
-      <td>${escapeHtml(o.buyerName || '—')}</td>
-      <td>${escapeHtml(o.sellerName || '—')}</td>
-      <td style="white-space:normal">${escapeHtml(o.productTitle || '—')}</td>
-      <td>${formatMoney(o.amount, o.currency)}</td>
-      <td><span class="status ${o.status}">${statusLabels[o.status] || o.status || '—'}</span></td>
-      <td class="row-actions">
-        ${o.status === 'disputed' ? `
-          <button class="icon-btn ok" onclick="resolveOrder('${o.id}','completed')">تأكيد للبائع</button>
-          <button class="icon-btn danger" onclick="resolveOrder('${o.id}','cancelled')">استرداد للمشتري</button>
-        ` : ''}
-        ${o.status === 'pending' ? `<button class="icon-btn danger" onclick="resolveOrder('${o.id}','cancelled')">إلغاء</button>` : ''}
-      </td>
-    </tr>
-  `).join('');
-}
-
-function resolveOrder(id, status) {
-  const labels = { completed: 'تأكيد الطلب للبائع', cancelled: 'إلغاء الطلب واسترداد المبلغ' };
-  confirmAction({
-    title: labels[status] || 'تحديث الطلب',
-    message: 'سيتم تحديث حالة الطلب وإشعار الطرفين. هل تريد المتابعة؟',
-    confirmLabel: 'تأكيد',
-    danger: status === 'cancelled',
-    onConfirm: async () => {
-      await api.patch('/admin/orders/' + id, { status });
-      toast('تم تحديث حالة الطلب', 'success');
-      loadOrders();
-    }
-  });
-}
-
-/* =========================================================
-   USERS
-========================================================= */
-async function loadUsers() {
-  const data = await safeLoad(() => api.get('/admin/users'), 'المستخدمين');
-  users = Array.isArray(data) ? data : (data && data.users) || [];
-  updateSidebarCounts();
-  renderUsers();
-}
-
-function renderUsers() {
-  const body = document.getElementById('usersTableBody');
-  const search = document.getElementById('usersSearch').value.trim().toLowerCase();
-  const filter = document.getElementById('usersFilter').value;
-
-  let rows = users;
-  if (filter === 'banned') rows = rows.filter(u => u.banned);
-  else if (filter) rows = rows.filter(u => u.role === filter);
-  if (search) rows = rows.filter(u =>
-    (u.name || '').toLowerCase().includes(search) || (u.email || '').toLowerCase().includes(search)
-  );
-
-  if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="6"><div class="empty-state">لا يوجد مستخدمون مطابقون.</div></td></tr>`;
-    return;
-  }
-
-  const roleLabels = { buyer: 'مشتري', seller: 'بائع', admin: 'مشرف' };
-
-  body.innerHTML = rows.map(u => `
-    <tr>
-      <td>${escapeHtml(u.name || '—')}</td>
-      <td>${escapeHtml(u.email || '—')}</td>
-      <td>${escapeHtml(roleLabels[u.role] || u.role || '—')}</td>
-      <td>${formatDate(u.joinedAt)}</td>
-      <td><span class="status ${u.banned ? 'banned' : 'active'}">${u.banned ? 'محظور' : 'نشط'}</span></td>
-      <td class="row-actions">
-        <button class="icon-btn ${u.banned ? 'ok' : 'warn'}" onclick="toggleUserBan('${u.id}', ${!u.banned})">${u.banned ? 'رفع الحظر' : 'حظر'}</button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function toggleUserBan(id, ban) {
-  confirmAction({
-    title: ban ? 'حظر المستخدم' : 'رفع الحظر عن المستخدم',
-    message: ban ? 'لن يتمكن هذا المستخدم من الدخول أو التعامل على المنصة حتى يتم رفع الحظر.' : 'سيتمكن هذا المستخدم من استخدام المنصة مرة أخرى.',
-    confirmLabel: ban ? 'حظر' : 'رفع الحظر',
-    danger: ban,
-    onConfirm: async () => {
-      await api.patch('/admin/users/' + id, { banned: ban });
-      toast(ban ? 'تم حظر المستخدم' : 'تم رفع الحظر', 'success');
-      loadUsers();
-    }
-  });
-}
-
-/* =========================================================
-   EARNINGS
-========================================================= */
-async function loadEarnings() {
-  const data = await safeLoad(() => api.get('/admin/earnings'), 'الأرباح');
-  const cards = document.querySelectorAll('#earningsStats .stat-value');
-  const summary = (data && data.summary) || data || {};
-  cards[0].textContent = formatMoney(summary.totalSales);
-  cards[1].textContent = formatMoney(summary.gameoraCommission);
-  cards[2].textContent = formatMoney(summary.sellerEarnings);
-  cards[3].textContent = formatMoney(summary.pendingAmount);
-
-  const rows = (data && data.transactions) || [];
-  const body = document.getElementById('earningsTableBody');
-  if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="5"><div class="empty-state">لا توجد عمليات مسجلة بعد.</div></td></tr>`;
-    return;
-  }
-  body.innerHTML = rows.map(t => `
-    <tr>
-      <td>${formatDate(t.date)}</td>
-      <td>#${escapeHtml(String(t.orderId || '').slice(-6))}</td>
-      <td>${formatMoney(t.total, t.currency)}</td>
-      <td>${formatMoney(t.commission, t.currency)}</td>
-      <td>${formatMoney(t.sellerNet, t.currency)}</td>
-    </tr>
-  `).join('');
-}
-
-/* =========================================================
-   WALLET
-========================================================= */
-async function loadWallet() {
-  const data = await safeLoad(() => api.get('/admin/wallet/transactions'), 'المعاملات');
-  const rows = Array.isArray(data) ? data : (data && data.transactions) || [];
-  const body = document.getElementById('walletTableBody');
-  if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="5"><div class="empty-state">لا توجد معاملات مسجلة بعد.</div></td></tr>`;
-    return;
-  }
-  const typeLabels = { deposit: 'إيداع', withdraw: 'سحب', commission: 'عمولة', refund: 'استرداد' };
-  body.innerHTML = rows.map(t => `
-    <tr>
-      <td>${escapeHtml(t.userName || '—')}</td>
-      <td>${escapeHtml(typeLabels[t.type] || t.type || '—')}</td>
-      <td>${formatMoney(t.amount, t.currency)}</td>
-      <td>${formatMoney(t.balanceAfter, t.currency)}</td>
-      <td>${formatDate(t.date)}</td>
-    </tr>
-  `).join('');
-}
-
-/* =========================================================
-   WITHDRAWALS
-========================================================= */
-async function loadWithdrawals() {
-  const data = await safeLoad(() => api.get('/admin/withdrawals'), 'طلبات السحب');
-  withdrawals = Array.isArray(data) ? data : (data && data.withdrawals) || [];
-  updateSidebarCounts();
-  renderWithdrawals();
-}
-
-function renderWithdrawals() {
-  const body = document.getElementById('withdrawalsTableBody');
-  const filter = document.getElementById('withdrawalsFilter').value;
-  let rows = withdrawals;
-  if (filter) rows = rows.filter(w => w.status === filter);
-
-  if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="6"><div class="empty-state">لا توجد طلبات سحب مطابقة.</div></td></tr>`;
-    return;
-  }
-
-  const statusLabels = { pending: 'قيد المراجعة', approved: 'مقبول', rejected: 'مرفوض' };
-
-  body.innerHTML = rows.map(w => `
-    <tr>
-      <td>${escapeHtml(w.sellerName || '—')}</td>
-      <td>${formatMoney(w.amount, w.currency)}</td>
-      <td>${escapeHtml(w.method || '—')}</td>
-      <td>${formatDate(w.requestedAt)}</td>
-      <td><span class="status ${w.status}">${statusLabels[w.status] || w.status || '—'}</span></td>
-      <td class="row-actions">
-        ${w.status === 'pending' ? `
-          <button class="icon-btn ok" onclick="resolveWithdrawal('${w.id}','approved')">قبول</button>
-          <button class="icon-btn danger" onclick="resolveWithdrawal('${w.id}','rejected')">رفض</button>
-        ` : '—'}
-      </td>
-    </tr>
-  `).join('');
-}
-
-function resolveWithdrawal(id, status) {
-  confirmAction({
-    title: status === 'approved' ? 'قبول طلب السحب' : 'رفض طلب السحب',
-    message: status === 'approved' ? 'سيتم تحويل المبلغ للبائع وتحديث رصيده.' : 'سيتم رفض الطلب وإعادة المبلغ لرصيد البائع.',
-    confirmLabel: status === 'approved' ? 'قبول' : 'رفض',
-    danger: status === 'rejected',
-    onConfirm: async () => {
-      await api.patch('/admin/withdrawals/' + id, { status });
-      toast(status === 'approved' ? 'تم قبول طلب السحب' : 'تم رفض طلب السحب', 'success');
-      loadWithdrawals();
-    }
-  });
-}
-
-/* =========================================================
-   FORMATTERS & UTILITIES
-========================================================= */
-function formatNumber(n) {
-  if (n === undefined || n === null || isNaN(n)) return '—';
-  return Number(n).toLocaleString('ar-EG');
-}
-
-function formatMoney(n, currency) {
-  if (n === undefined || n === null || isNaN(n)) return '—';
-  return Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 2 }) + ' ' + (currency || '');
-}
-
-function formatDate(value) {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return String(value);
-  return d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-function escapeHtml(str) {
-  if (str === undefined || str === null) return '';
-  return String(str)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
-function escapeAttr(str) { return escapeHtml(str).replaceAll("'", '&#39;'); }
 </script>
+
 </body>
 </html>
