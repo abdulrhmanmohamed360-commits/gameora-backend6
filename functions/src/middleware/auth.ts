@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { verifyToken } from "../lib/jwt";
+import * as admin from "firebase-admin";
 import { Errors } from "../lib/errors";
 
-// بيضيف userId على الـ Request بعد التحقق من التوكن
+// بيضيف Firebase UID على الـ Request بعد التحقق من Firebase ID Token
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -12,26 +12,48 @@ declare global {
   }
 }
 
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+export async function requireAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) {
   const header = req.header("Authorization") || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
-  if (!token) return next(Errors.unauthorized("Missing bearer token"));
+  const token = header.startsWith("Bearer ")
+    ? header.slice(7).trim()
+    : null;
 
-  const payload = verifyToken(token);
-  if (!payload) return next(Errors.unauthorized("Invalid or expired token"));
+  if (!token) {
+    return next(Errors.unauthorized("Missing bearer token"));
+  }
 
-  req.userId = payload.uid;
-  next();
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    req.userId = decodedToken.uid;
+    next();
+  } catch {
+    return next(Errors.unauthorized("Invalid or expired token"));
+  }
 }
 
-// بيحاول ياخد الـ userId لو موجود من غير ما يرفض الطلب لو مفيش توكن
-// (مفيدة لو حبيت تعمل endpoint شغال للزوار وللمسجلين مع اختلاف بسيط في الرد)
-export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+export async function optionalAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) {
   const header = req.header("Authorization") || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  const token = header.startsWith("Bearer ")
+    ? header.slice(7).trim()
+    : null;
+
   if (token) {
-    const payload = verifyToken(token);
-    if (payload) req.userId = payload.uid;
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      req.userId = decodedToken.uid;
+    } catch {
+      // Optional auth: continue as a guest if the token is invalid.
+    }
   }
+
   next();
 }
