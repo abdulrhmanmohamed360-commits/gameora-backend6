@@ -5,6 +5,8 @@ import express, {
 } from "express";
 import cors from "cors";
 import path from "path";
+import crypto from "crypto";
+
 import { ApiError } from "./lib/errors";
 import { db } from "./firebase";
 
@@ -27,7 +29,6 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
-// تقديم صفحات الموقع الموجودة داخل public
 app.use(express.static(path.join(__dirname, "../public")));
 
 // API Routes
@@ -50,84 +51,109 @@ app.use("/admin", adminRoutes);
 app.use("/offers", offersRoutes);
 
 /*
- * Paymob Transaction Webhook
+ * Paymob Transaction Callback HMAC
  *
- * مهم:
- * - Public endpoint
- * - لا يحتاج Firebase Authentication
- * - لا نضيف الرصيد بمجرد رجوع المستخدم من صفحة الدفع
- * - Paymob Callback هو مصدر الحقيقة
+ * Paymob Transaction Callback uses these 20 fields
+ * in this exact order.
+ */
+function calculatePaymobHmac(obj: any, secret: string): string {
+  const values = [
+    obj?.amount_cents,
+    obj?.created_at,
+    obj?.currency,
+    obj?.error_occured,
+    obj?.has_parent_transaction,
+    obj?.id,
+    obj?.integration_id,
+    obj?.is_3d_secure,
+    obj?.is_auth,
+    obj?.is_capture,
+    obj?.is_refunded,
+    obj?.is_standalone_payment,
+    obj?.is_voided,
+    obj?.order?.id,
+    obj?.owner,
+    obj?.pending,
+    obj?.source_data?.pan,
+    obj?.source_data?.sub_type,
+    obj?.source_data?.type,
+    obj?.success,
+  ];
+
+  const data = values
+    .map((value) =>
+      value === null || value === undefined
+        ? ""
+        : String(value)
+    )
+    .join("");
+
+  return crypto
+    .createHmac("sha512", secret)
+    .update(data)
+    .digest("hex");
+}
+
+function isValidHmac(
+  calculated: string,
+  received: string
+): boolean {
+  const calculatedBuffer =
+    Buffer.from(calculated, "utf8");
+
+  const receivedBuffer =
+    Buffer.from(received, "utf8");
+
+  if (
+    calculatedBuffer.length !==
+    receivedBuffer.length
+  ) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    calculatedBuffer,
+    receivedBuffer
+  );
+}
+
+/*
+ * Paymob Webhook
  *
- * HMAC verification سيتم تفعيله قبل السماح
- * بإضافة الرصيد.
+ * Public endpoint.
+ * No Firebase authentication here.
  */
 app.post(
   "/payments/paymob/webhook",
   async (req: Request, res: Response) => {
     try {
       const payload = req.body;
+      const obj = payload?.obj;
 
-      if (!payload || typeof payload !== "object") {
+      if (!obj) {
         return res.status(400).json({
           ok: false,
-          message: "Invalid webhook payload",
-        });
-      }
-
-      const transaction = payload?.obj;
-
-      if (!transaction) {
-        return res.status(400).json({
-          ok: false,
-          message: "Missing transaction object",
-        });
-      }
-
-      const transactionId = transaction?.id;
-
-      const success = transaction?.success === true;
-
-      const amountCents = Number(
-        transaction?.amount_cents
-      );
-
-      const currency = transaction?.currency;
-
-      const integrationId = Number(
-        transaction?.integration_id
-      );
-
-      const orderId = Number(
-        transaction?.order?.id
-      );
-
-      if (!transactionId) {
-        return res.status(400).json({
-          ok: false,
-          message: "Missing transaction id",
+          message: "Missing Paymob transaction object",
         });
       }
 
       /*
-       * نحن لا نثق في callback وحده لإضافة الرصيد
-       * قبل التحقق من HMAC.
+       * Paymob sends HMAC with the callback.
        *
-       * لذلك في هذه المرحلة نرفض أي callback
-       * إذا لم يكن HMAC موجودًا.
+       * We support both body and query parameter
+       * to make the endpoint compatible with
+       * Paymob callback variations.
        */
       const receivedHmac =
         typeof payload?.hmac === "string"
           ? payload.hmac
-          : typeof transaction?.hmac === "string"
-            ? transaction.hmac
+          : typeof req.query?.hmac === "string"
+            ? req.query.hmac
             : null;
 
       if (!receivedHmac) {
         console.error(
-          "Paymob webhook rejected: missing HMAC",
-          {
-            transactionId,
-          }
+          "Paymob webhook rejected: missing HMAC"
         );
 
         return res.status(401).json({
@@ -136,47 +162,476 @@ app.post(
         });
       }
 
+      const hmacSecret =
+        process.env.PAYMOB_HMAC_SECRET;
+
+      if (!hmacSecret) {
+        console.error(
+          "PAYMOB_HMAC_SECRET is not configured"
+        );
+
+        return res.status(500).json({
+          ok: false,
+          message: "Paymob HMAC secret is not configured",
+        });
+      }
+
+      const calculatedHmac =
+        calculatePaymobHmac(
+          obj,
+          hmacSecret
+        );
+
+      if (
+        !isValidHmac(
+          calculatedHmac,
+          receivedHmac
+        )
+      ) {
+        console.error(
+          "Paymob webhook rejected: invalid HMAC",
+          {
+            transactionId: obj?.id ?? null,
+          }
+        );
+
+        return res.status(401).json({
+          ok: false,
+          message: "Invalid HMAC",
+        });
+      }
+
       /*
-       * TODO:
-       *
-       * هنا سنضع حساب HMAC الرسمي الخاص بـ
-       * Transaction Processed Callback بعد تثبيت
-       * قائمة الحقول الرسمية من Paymob.
-       *
-       * لا نضيف الرصيد قبل هذه الخطوة.
+       * From this point onward the callback
+       * is trusted.
        */
-      return res.status(501).json({
-        ok: false,
-        message: "Webhook HMAC verification is not configured yet",
-        transactionId,
-        success,
-        amountCents,
-        currency,
-        integrationId,
-        orderId,
+
+      const transactionId = Number(obj?.id);
+
+      const amountCents = Number(
+        obj?.amount_cents
+      );
+
+      const currency =
+        typeof obj?.currency === "string"
+          ? obj.currency.toUpperCase()
+          : "";
+
+      const integrationId =
+        Number(obj?.integration_id);
+
+      const orderId =
+        Number(obj?.order?.id);
+
+      const success =
+        obj?.success === true;
+
+      if (
+        !Number.isFinite(transactionId) ||
+        transactionId <= 0
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid Paymob transaction ID",
+        });
+      }
+
+      if (
+        !Number.isFinite(amountCents) ||
+        amountCents <= 0
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid payment amount",
+        });
+      }
+
+      if (currency !== "EGP") {
+        return res.status(400).json({
+          ok: false,
+          message: "Unsupported payment currency",
+        });
+      }
+
+      const configuredIntegrationId =
+        Number(
+          process.env.PAYMOB_INTEGRATION_ID
+        );
+
+      if (
+        !Number.isFinite(
+          configuredIntegrationId
+        ) ||
+        configuredIntegrationId <= 0
+      ) {
+        return res.status(500).json({
+          ok: false,
+          message:
+            "Paymob integration ID is not configured",
+        });
+      }
+
+      if (
+        integrationId !==
+        configuredIntegrationId
+      ) {
+        console.error(
+          "Paymob webhook rejected: integration mismatch",
+          {
+            received: integrationId,
+            expected:
+              configuredIntegrationId,
+          }
+        );
+
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid integration ID",
+        });
+      }
+
+      if (
+        !Number.isFinite(orderId) ||
+        orderId <= 0
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid Paymob order ID",
+        });
+      }
+
+      /*
+       * Find the Gameora deposit using the
+       * Paymob order ID created by our intention.
+       */
+      const depositSnapshot =
+        await db
+          .collection("deposits")
+          .where(
+            "providerOrderId",
+            "==",
+            orderId
+          )
+          .limit(1)
+          .get();
+
+      if (depositSnapshot.empty) {
+        console.error(
+          "Paymob webhook: deposit not found",
+          {
+            orderId,
+            transactionId,
+          }
+        );
+
+        return res.status(404).json({
+          ok: false,
+          message: "Deposit not found",
+        });
+      }
+
+      const depositDoc =
+        depositSnapshot.docs[0];
+
+      const depositRef =
+        depositDoc.ref;
+
+      /*
+       * Find the related Gameora transaction.
+       */
+      const transactionSnapshot =
+        await db
+          .collection("transactions")
+          .where(
+            "depositId",
+            "==",
+            depositRef.id
+          )
+          .limit(1)
+          .get();
+
+      if (transactionSnapshot.empty) {
+        console.error(
+          "Paymob webhook: transaction not found",
+          {
+            depositId:
+              depositRef.id,
+          }
+        );
+
+        return res.status(404).json({
+          ok: false,
+          message:
+            "Gameora transaction not found",
+        });
+      }
+
+      const gameoraTransactionRef =
+        transactionSnapshot.docs[0].ref;
+
+      /*
+       * Firestore transaction guarantees that:
+       *
+       * 1. We never credit the same deposit twice.
+       * 2. Wallet balance and transaction status
+       *    change atomically.
+       */
+      const result =
+        await db.runTransaction(
+          async (transaction) => {
+            const freshDeposit =
+              await transaction.get(
+                depositRef
+              );
+
+            const freshWallet =
+              await transaction.get(
+                db
+                  .collection("wallets")
+                  .doc(
+                    depositDoc.data().userId
+                  )
+              );
+
+            const freshGameoraTransaction =
+              await transaction.get(
+                gameoraTransactionRef
+              );
+
+            if (!freshDeposit.exists) {
+              throw new Error(
+                "Deposit no longer exists"
+              );
+            }
+
+            const depositData =
+              freshDeposit.data()!;
+
+            /*
+             * Idempotency:
+             *
+             * If Paymob sends the same callback
+             * again after completion, do NOT add
+             * the money again.
+             */
+            if (
+              depositData.status ===
+              "COMPLETED"
+            ) {
+              return {
+                alreadyCompleted: true,
+                userId:
+                  depositData.userId,
+                amount:
+                  depositData.amount,
+              };
+            }
+
+            const expectedAmountCents =
+              Math.round(
+                Number(
+                  depositData.amount
+                ) * 100
+              );
+
+            if (
+              expectedAmountCents !==
+              amountCents
+            ) {
+              throw new Error(
+                "Payment amount does not match deposit"
+              );
+            }
+
+            if (
+              depositData.currency !==
+              currency
+            ) {
+              throw new Error(
+                "Payment currency does not match deposit"
+              );
+            }
+
+            const userId =
+              depositData.userId;
+
+            if (!userId) {
+              throw new Error(
+                "Deposit has no user ID"
+              );
+            }
+
+            /*
+             * Failed / declined payment:
+             * mark the pending records as failed.
+             */
+            if (!success) {
+              transaction.update(
+                depositRef,
+                {
+                  status: "FAILED",
+                  providerPaymentId:
+                    String(
+                      transactionId
+                    ),
+                  updatedAt:
+                    new Date(),
+                }
+              );
+
+              if (
+                freshGameoraTransaction.exists
+              ) {
+                transaction.update(
+                  gameoraTransactionRef,
+                  {
+                    status: "FAILED",
+                    providerPaymentId:
+                      String(
+                        transactionId
+                      ),
+                  }
+                );
+              }
+
+              return {
+                alreadyCompleted: false,
+                failed: true,
+                userId,
+              };
+            }
+
+            /*
+             * Successful payment.
+             *
+             * Wallet is created if it doesn't exist.
+             */
+            const walletRef =
+              db
+                .collection("wallets")
+                .doc(userId);
+
+            const currentWallet =
+              freshWallet.exists
+                ? freshWallet.data()!
+                : {};
+
+            const currentBalance =
+              Number(
+                currentWallet.balance ?? 0
+              );
+
+            const depositAmount =
+              Number(
+                depositData.amount
+              );
+
+            const newBalance =
+              currentBalance +
+              depositAmount;
+
+            transaction.set(
+              walletRef,
+              {
+                balance: newBalance,
+                currency: "EGP",
+                pendingBalance:
+                  Number(
+                    currentWallet.pendingBalance ??
+                      0
+                  ),
+                updatedAt:
+                  new Date(),
+              },
+              {
+                merge: true,
+              }
+            );
+
+            transaction.update(
+              depositRef,
+              {
+                status: "COMPLETED",
+                providerPaymentId:
+                  String(transactionId),
+                providerOrderId:
+                  orderId,
+                completedAt:
+                  new Date(),
+                updatedAt:
+                  new Date(),
+              }
+            );
+
+            if (
+              freshGameoraTransaction.exists
+            ) {
+              transaction.update(
+                gameoraTransactionRef,
+                {
+                  status: "COMPLETED",
+                  providerPaymentId:
+                    String(transactionId),
+                  providerOrderId:
+                    orderId,
+                  updatedAt:
+                    new Date(),
+                }
+              );
+            }
+
+            return {
+              alreadyCompleted: false,
+              failed: false,
+              userId,
+              amount: depositAmount,
+              newBalance,
+            };
+          }
+        );
+
+      if (result.alreadyCompleted) {
+        return res.status(200).json({
+          ok: true,
+          received: true,
+          alreadyProcessed: true,
+        });
+      }
+
+      if (result.failed) {
+        return res.status(200).json({
+          ok: true,
+          received: true,
+          paymentSuccessful: false,
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        received: true,
+        paymentSuccessful: true,
+        walletUpdated: true,
       });
     } catch (error) {
       console.error(
-        "Paymob webhook error:",
+        "Paymob webhook processing error:",
         error
       );
 
       return res.status(500).json({
         ok: false,
-        message: "Webhook processing failed",
+        message:
+          "Webhook processing failed",
       });
     }
   }
 );
 
 /*
- * Payment result page
+ * Payment result page.
  *
- * Paymob redirects the customer here after checkout.
- * This endpoint is for UX only.
- *
- * The payment status must still be determined
- * from the Paymob transaction webhook.
+ * This page is only for user experience.
+ * It does NOT decide whether money was paid.
  */
 app.get(
   "/wallet/payment-result",
@@ -191,6 +646,7 @@ app.get(
             content="width=device-width, initial-scale=1.0"
           />
           <title>Gameora - نتيجة الدفع</title>
+
           <style>
             body {
               margin: 0;
@@ -226,10 +682,11 @@ app.get(
         <body>
           <div class="box">
             <h1>تم استلام نتيجة الدفع</h1>
+
             <p>
               جاري التحقق من حالة العملية.
-              سيتم تحديث رصيد Gameora بعد تأكيد الدفع
-              من Paymob.
+              سيتم تحديث رصيد Gameora بعد تأكيد
+              الدفع من Paymob.
             </p>
           </div>
         </body>
