@@ -1,305 +1,756 @@
-import { Errors } from "./errors";
+import * as admin from "firebase-admin";
+import { db } from "../firebase";
+import { Errors } from "../lib/errors";
+import {
+  ADMIN_SCAN_LIMIT,
+  COMPLAINT_STATUSES,
+  ComplaintPriority,
+  ComplaintStatus,
+  ComplaintType,
+  LIMITS,
+  MessageKind,
+  SenderRole,
+  assertTransition,
+  preview,
+  statusChangeText,
+  priorityChangeText,
+  ticketCode,
+  toComplaintDto,
+  toComplaintMessageDto,
+} from "../lib/complaints";
 
-/*
- * =========================================================
- * نظام الشكاوى والدعم — الثوابت والتحقق والـ DTOs
- *
- * الـ Collections في Firestore:
- *   complaints/{id}
- *   complaints/{id}/messages/{messageId}
- *   counters/complaints            (عدّاد رقم الشكوى)
- *
- * كل الكتابة من الـ Backend فقط (Admin SDK). الأندرويد ولوحة
- * الأدمن بيقروا Realtime من Firestore حسب firestore.rules.
- * =========================================================
- */
-
-export const COMPLAINT_STATUSES = [
-  "OPEN",
-  "IN_PROGRESS",
-  "WAITING_FOR_USER",
-  "RESOLVED",
-  "CLOSED",
-] as const;
-export type ComplaintStatus = (typeof COMPLAINT_STATUSES)[number];
-
-export const COMPLAINT_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
-export type ComplaintPriority = (typeof COMPLAINT_PRIORITIES)[number];
-
-export const COMPLAINT_TYPES = [
-  "ORDER_ISSUE",
-  "PAYMENT",
-  "ACCOUNT",
-  "SELLER_REPORT",
-  "PRODUCT",
-  "TECHNICAL",
-  "SUGGESTION",
-  "OTHER",
-] as const;
-export type ComplaintType = (typeof COMPLAINT_TYPES)[number];
-
-export type MessageKind =
-  | "message"
-  | "info_request"
-  | "status_change"
-  | "priority_change";
-
-export type SenderRole = "user" | "admin" | "system";
-
-export const LIMITS = {
-  SUBJECT_MIN: 3,
-  SUBJECT_MAX: 120,
-  DESCRIPTION_MIN: 10,
-  DESCRIPTION_MAX: 4000,
-  MESSAGE_MAX: 2000,
-  /* أقصى عدد شكاوى مفتوحة (مش RESOLVED/CLOSED) لمستخدم واحد — بيمنع الإغراق. */
-  MAX_ACTIVE_PER_USER: 10,
-  /* أقصى عدد مستندات بنقراه في قوائم الأدمن قبل الفلترة في الذاكرة. */
-  ADMIN_SCAN_LIMIT: 1000,
-} as const;
-
-export const CLIENT_MESSAGE_ID_REGEX = /^[A-Za-z0-9_-]{8,64}$/;
-
-/* --------------------------------------------------------- الحالات */
-
-/* تسميات محايدة بتظهر في سجل الشكوى (الأدمن والمستخدم بيشوفوا نفس النص). */
-export const STATUS_LABEL_AR: Record<ComplaintStatus, string> = {
-  OPEN: "مفتوحة",
-  IN_PROGRESS: "قيد المعالجة",
-  WAITING_FOR_USER: "بانتظار رد المستخدم",
-  RESOLVED: "تم الحل",
-  CLOSED: "مغلقة",
-};
-
-/* تسميات موجهة للمستخدم في الإشعارات. */
-export const STATUS_LABEL_USER_AR: Record<ComplaintStatus, string> = {
-  ...STATUS_LABEL_AR,
-  WAITING_FOR_USER: "بانتظار ردّك",
-};
-
-export const PRIORITY_LABEL_AR: Record<ComplaintPriority, string> = {
-  LOW: "منخفضة",
-  MEDIUM: "متوسطة",
-  HIGH: "عالية",
-  URGENT: "عاجلة",
-};
-
-export function isComplaintStatus(v: unknown): v is ComplaintStatus {
-  return typeof v === "string" && (COMPLAINT_STATUSES as readonly string[]).includes(v);
+export interface Actor {
+  uid: string;
+  name?: string | null;
+  email?: string | null;
+  role?: "admin" | "support" | "user";
 }
 
-export function isComplaintPriority(v: unknown): v is ComplaintPriority {
-  return typeof v === "string" && (COMPLAINT_PRIORITIES as readonly string[]).includes(v);
+interface UserProfile {
+  uid: string;
+  name: string;
+  email: string | null;
 }
 
-export function isComplaintType(v: unknown): v is ComplaintType {
-  return typeof v === "string" && (COMPLAINT_TYPES as readonly string[]).includes(v);
+interface PostMessageOptions {
+  clientMessageId?: string | null;
 }
 
-/**
- * قواعد الانتقال بين الحالات (بيطبّقها الأدمن فقط):
- *  - نفس الحالة → مرفوض.
- *  - الشكوى المغلقة (CLOSED) ما بتتفتحش غير بإعادة الفتح (OPEN).
- *  - باقي الانتقالات مسموحة.
- */
-export function assertTransition(from: ComplaintStatus, to: ComplaintStatus): void {
-  if (from === to) {
-    throw Errors.badRequest("الشكوى بالفعل في هذه الحالة");
-  }
-  if (from === "CLOSED" && to !== "OPEN") {
-    throw Errors.conflict("الشكوى مغلقة — أعد فتحها أولًا قبل تغيير حالتها");
-  }
+const complaintsRef = db.collection("complaints");
+const counterRef = db.collection("counters").doc("complaints");
+
+function complaintRef(id: string) {
+  return complaintsRef.doc(id);
 }
 
-/* --------------------------------------------------------- التحقق */
-
-function cleanText(v: unknown): string {
-  return typeof v === "string" ? v.replace(/\r\n/g, "\n").trim() : "";
+function messagesRef(id: string) {
+  return complaintRef(id).collection("messages");
 }
 
-export interface NewComplaintInput {
-  type: ComplaintType;
-  priority: ComplaintPriority;
-  subject: string;
-  description: string;
-  orderId: string | null;
-}
+function isoDate(value: any): string | null {
+  if (!value) return null;
 
-/* مهم: مفيش أي حقل هوية أو دور هنا — المستخدم بيتحدد من التوكن فقط. */
-export function parseNewComplaint(body: any): NewComplaintInput {
-  const b = body && typeof body === "object" ? body : {};
-
-  const type = typeof b.type === "string" ? b.type.trim().toUpperCase() : "";
-  if (!isComplaintType(type)) {
-    throw Errors.badRequest("نوع الشكوى غير صحيح");
+  if (value instanceof admin.firestore.Timestamp) {
+    return value.toDate().toISOString();
   }
 
-  const rawPriority =
-    typeof b.priority === "string" && b.priority.trim() ? b.priority.trim().toUpperCase() : "MEDIUM";
-  if (!isComplaintPriority(rawPriority)) {
-    throw Errors.badRequest("أولوية الشكوى غير صحيحة");
+  if (value instanceof Date) {
+    return value.toISOString();
   }
 
-  const subject = cleanText(b.subject);
-  if (subject.length < LIMITS.SUBJECT_MIN || subject.length > LIMITS.SUBJECT_MAX) {
-    throw Errors.badRequest(
-      `عنوان الشكوى لازم يكون بين ${LIMITS.SUBJECT_MIN} و${LIMITS.SUBJECT_MAX} حرف`
-    );
+  if (typeof value?.toDate === "function") {
+    return value.toDate().toISOString();
   }
 
-  const description = cleanText(b.description);
-  if (description.length < LIMITS.DESCRIPTION_MIN || description.length > LIMITS.DESCRIPTION_MAX) {
-    throw Errors.badRequest(
-      `تفاصيل الشكوى لازم تكون بين ${LIMITS.DESCRIPTION_MIN} و${LIMITS.DESCRIPTION_MAX} حرف`
-    );
+  if (typeof value === "string") {
+    return value;
   }
 
-  const orderId =
-    typeof b.orderId === "string" && b.orderId.trim() ? b.orderId.trim().slice(0, 128) : null;
-
-  return { type, priority: rawPriority, subject, description, orderId };
+  return null;
 }
 
-export interface ComplaintUpdateInput {
-  status?: ComplaintStatus;
-  priority?: ComplaintPriority;
-  note: string | null;
-}
+function serializeData(data: FirebaseFirestore.DocumentData) {
+  const out: Record<string, any> = {};
 
-/* تحديث الأدمن: حالة و/أو أولوية و/أو ملاحظة (بتظهر للمستخدم كرسالة). */
-export function parseComplaintUpdate(body: any): ComplaintUpdateInput {
-  const b = body && typeof body === "object" ? body : {};
-  const out: ComplaintUpdateInput = { note: null };
-
-  if (b.status !== undefined && b.status !== null && b.status !== "") {
-    const status = typeof b.status === "string" ? b.status.trim().toUpperCase() : "";
-    if (!isComplaintStatus(status)) {
-      throw Errors.badRequest("الحالة غير صحيحة");
+  for (const [key, value] of Object.entries(data || {})) {
+    if (value instanceof admin.firestore.Timestamp) {
+      out[key] = value.toDate().toISOString();
+    } else {
+      out[key] = value;
     }
-    out.status = status;
-  }
-
-  if (b.priority !== undefined && b.priority !== null && b.priority !== "") {
-    const priority = typeof b.priority === "string" ? b.priority.trim().toUpperCase() : "";
-    if (!isComplaintPriority(priority)) {
-      throw Errors.badRequest("الأولوية غير صحيحة");
-    }
-    out.priority = priority;
-  }
-
-  if (b.note !== undefined && b.note !== null && String(b.note).trim() !== "") {
-    out.note = parseMessageText({ text: b.note });
-  }
-
-  if (out.status === undefined && out.priority === undefined && out.note === null) {
-    throw Errors.badRequest("لا توجد تغييرات لتطبيقها");
   }
 
   return out;
 }
 
-export function parseMessageText(body: any): string {
-  const raw = body && typeof body === "object" ? body.text : undefined;
-  const text = cleanText(raw);
-  if (!text) {
-    throw Errors.badRequest("text is required");
-  }
-  if (text.length > LIMITS.MESSAGE_MAX) {
-    throw Errors.badRequest(`text must be at most ${LIMITS.MESSAGE_MAX} characters`);
-  }
-  return text;
+function activeStatus(status: ComplaintStatus): boolean {
+  return status !== "RESOLVED" && status !== "CLOSED";
 }
 
-export function parseClientMessageId(body: any): string | null {
-  const raw = body && typeof body === "object" ? body.clientMessageId : undefined;
-  return typeof raw === "string" && CLIENT_MESSAGE_ID_REGEX.test(raw) ? raw : null;
-}
-
-/* --------------------------------------------------------- DTOs */
-
-export function ticketCode(n: unknown): string | null {
-  const num = Number(n);
-  if (!Number.isFinite(num) || num <= 0) return null;
-  return "GC-" + String(Math.trunc(num)).padStart(5, "0");
-}
-
-export type Viewer = "user" | "admin";
-
-export function toComplaintDto(id: string, d: FirebaseFirestore.DocumentData, viewer: Viewer) {
-  const base = {
-    id,
-    ticketNumber: d.ticketNumber ?? null,
-    code: d.code ?? ticketCode(d.ticketNumber),
-    type: d.type ?? "OTHER",
-    priority: d.priority ?? "MEDIUM",
-    status: d.status ?? "OPEN",
-    subject: d.subject ?? "",
-    description: d.description ?? "",
-    orderId: d.orderId ?? null,
-    createdAt: d.createdAt ?? null,
-    updatedAt: d.updatedAt ?? null,
-    lastMessage: d.lastMessage ?? null,
-    lastMessageAt: d.lastMessageAt ?? null,
-    lastMessageBy: d.lastMessageBy ?? null,
-    resolvedAt: d.resolvedAt ?? null,
-    closedAt: d.closedAt ?? null,
-    reopenCount: d.reopenCount ?? 0,
-    unreadCount: Number((viewer === "admin" ? d.unreadAdmin : d.unreadUser) ?? 0),
-  };
-
-  if (viewer === "user") {
-    return base;
-  }
+async function getUserProfile(uid: string): Promise<UserProfile> {
+  const snap = await db.collection("users").doc(uid).get();
+  const data = snap.exists ? snap.data() || {} : {};
 
   return {
-    ...base,
-    userId: d.userId ?? null,
-    userName: d.userName ?? null,
-    userEmail: d.userEmail ?? null,
-    assignedTo: d.assignedTo ?? null,
-    assignedToName: d.assignedToName ?? null,
+    uid,
+    name: String(
+      data.displayName ||
+        data.username ||
+        data.name ||
+        data.email ||
+        "مستخدم Gameora"
+    ),
+    email: typeof data.email === "string" ? data.email : null,
   };
 }
 
-export const SUPPORT_TEAM_NAME = "فريق الدعم";
+async function nextTicketNumber(
+  transaction: FirebaseFirestore.Transaction
+): Promise<number> {
+  const snap = await transaction.get(counterRef);
+  const current = snap.exists ? Number(snap.data()?.value || 0) : 0;
+  const next = current + 1;
 
-export function toComplaintMessageDto(
+  transaction.set(
+    counterRef,
+    {
+      value: next,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return next;
+}
+
+function messageDto(
   id: string,
-  d: FirebaseFirestore.DocumentData,
-  viewer: Viewer
+  data: FirebaseFirestore.DocumentData,
+  viewer: "user" | "admin"
 ) {
-  const senderRole: SenderRole = d.senderRole ?? "user";
+  const serialized = serializeData(data);
+  return toComplaintMessageDto(id, serialized, viewer);
+}
 
-  /* المستخدم بيشوف "فريق الدعم" بدل اسم الأدمن الشخصي. */
-  const senderName =
-    senderRole === "admin" && viewer === "user" ? SUPPORT_TEAM_NAME : d.senderName ?? null;
+function complaintDto(
+  id: string,
+  data: FirebaseFirestore.DocumentData,
+  viewer: "user" | "admin"
+) {
+  return toComplaintDto(id, serializeData(data), viewer);
+}
+
+/* =========================================================
+   إنشاء شكوى
+   ========================================================= */
+
+export async function createComplaint(
+  profile: UserProfile,
+  input: {
+    type: ComplaintType;
+    priority: ComplaintPriority;
+    subject: string;
+    description: string;
+    orderId: string | null;
+  }
+) {
+  const existing = await complaintsRef
+    .where("userId", "==", profile.uid)
+    .where("status", "in", [...COMPLAINT_STATUSES])
+    .limit(LIMITS.MAX_ACTIVE_PER_USER + 1)
+    .get();
+
+  const activeCount = existing.docs.filter((doc) =>
+    activeStatus((doc.data().status || "OPEN") as ComplaintStatus)
+  ).length;
+
+  if (activeCount >= LIMITS.MAX_ACTIVE_PER_USER) {
+    throw Errors.conflict(
+      `لا يمكنك إنشاء أكثر من ${LIMITS.MAX_ACTIVE_PER_USER} شكاوى مفتوحة في نفس الوقت`
+    );
+  }
+
+  const ref = complaintsRef.doc();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  const result = await db.runTransaction(async (transaction) => {
+    const ticketNumber = await nextTicketNumber(transaction);
+
+    transaction.set(ref, {
+      userId: profile.uid,
+      userName: profile.name,
+      userEmail: profile.email,
+
+      ticketNumber,
+      code: ticketCode(ticketNumber),
+
+      type: input.type,
+      priority: input.priority,
+      status: "OPEN",
+
+      subject: input.subject,
+      description: input.description,
+      orderId: input.orderId,
+
+      assignedTo: null,
+      assignedToName: null,
+
+      lastMessage: input.description,
+      lastMessageAt: now,
+      lastMessageBy: "user",
+
+      unreadUser: 0,
+      unreadAdmin: 1,
+
+      resolvedAt: null,
+      closedAt: null,
+      reopenCount: 0,
+
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const messageRef = messagesRef(ref.id).doc();
+
+    transaction.set(messageRef, {
+      complaintId: ref.id,
+      senderId: profile.uid,
+      senderRole: "user" as SenderRole,
+      senderName: profile.name,
+      kind: "message" as MessageKind,
+      text: input.description,
+      meta: {
+        initialComplaint: true,
+      },
+      clientMessageId: null,
+      createdAt: now,
+      status: "sent",
+    });
+
+    return {
+      id: ref.id,
+      ticketNumber,
+      code: ticketCode(ticketNumber),
+    };
+  });
+
+  const created = await ref.get();
+
+  return complaintDto(created.id, created.data() || {}, "user");
+}
+
+/* =========================================================
+   شكاوى المستخدم
+   ========================================================= */
+
+export async function listUserComplaints(
+  uid: string,
+  options: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  } = {}
+) {
+  const page = Math.max(1, Number(options.page || 1));
+  const limit = Math.min(50, Math.max(1, Number(options.limit || 20)));
+
+  let query: FirebaseFirestore.Query = complaintsRef.where(
+    "userId",
+    "==",
+    uid
+  );
+
+  if (options.status) {
+    query = query.where("status", "==", options.status);
+  }
+
+  query = query.orderBy("updatedAt", "desc");
+
+  const snap = await query
+    .limit(page * limit)
+    .get();
+
+  const start = (page - 1) * limit;
+  const docs = snap.docs.slice(start, start + limit);
 
   return {
-    id,
-    /* conversationId بتتساب عشان MessageDto في الأندرويد يتعامل معاها كمحادثة عادية. */
-    conversationId: d.complaintId ?? null,
-    complaintId: d.complaintId ?? null,
-    senderId: d.senderId ?? null,
-    senderRole,
-    senderName,
-    kind: (d.kind as MessageKind | undefined) ?? "message",
-    text: d.text ?? null,
-    meta: d.meta ?? null,
-    createdAt: d.createdAt ?? null,
-    status: d.status ?? "sent",
+    items: docs.map((doc) =>
+      complaintDto(doc.id, doc.data(), "user")
+    ),
+    page,
+    limit,
+    hasMore: snap.docs.length > start + docs.length,
   };
 }
 
-/* --------------------------------------------------------- نصوص النظام */
+/* =========================================================
+   شكوى المستخدم فقط
+   ========================================================= */
 
-export function statusChangeText(from: ComplaintStatus, to: ComplaintStatus): string {
-  return `تم تغيير حالة الشكوى من «${STATUS_LABEL_AR[from]}» إلى «${STATUS_LABEL_AR[to]}»`;
+export async function getOwnedComplaint(
+  uid: string,
+  id: string
+) {
+  const snap = await complaintRef(id).get();
+
+  if (!snap.exists) {
+    throw Errors.notFound("الشكوى غير موجودة");
+  }
+
+  const data = snap.data() || {};
+
+  if (data.userId !== uid) {
+    throw Errors.notFound("الشكوى غير موجودة");
+  }
+
+  return snap;
 }
 
-export function priorityChangeText(from: ComplaintPriority, to: ComplaintPriority): string {
-  return `تم تغيير أولوية الشكوى من «${PRIORITY_LABEL_AR[from]}» إلى «${PRIORITY_LABEL_AR[to]}»`;
+/* =========================================================
+   شكاوى الأدمن
+   ========================================================= */
+
+export async function listAdminComplaints(
+  options: {
+    status?: string;
+    priority?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  } = {}
+) {
+  const page = Math.max(1, Number(options.page || 1));
+  const limit = Math.min(100, Math.max(1, Number(options.limit || 20)));
+
+  let query: FirebaseFirestore.Query = complaintsRef;
+
+  if (options.status) {
+    query = query.where("status", "==", options.status);
+  }
+
+  if (options.priority) {
+    query = query.where("priority", "==", options.priority);
+  }
+
+  query = query.orderBy("updatedAt", "desc");
+
+  const snap = await query
+    .limit(LIMITS.ADMIN_SCAN_LIMIT)
+    .get();
+
+  let items = snap.docs.map((doc) => ({
+    id: doc.id,
+    data: doc.data(),
+  }));
+
+  const search = String(options.search || "").trim().toLowerCase();
+
+  if (search) {
+    items = items.filter(({ data }) => {
+      const values = [
+        data.code,
+        data.ticketNumber,
+        data.subject,
+        data.userName,
+        data.userEmail,
+        data.userId,
+        data.orderId,
+      ]
+        .filter(Boolean)
+        .map((v) => String(v).toLowerCase());
+
+      return values.some((v) => v.includes(search));
+    });
+  }
+
+  const start = (page - 1) * limit;
+  const selected = items.slice(start, start + limit);
+
+  return {
+    items: selected.map(({ id, data }) =>
+      complaintDto(id, data, "admin")
+    ),
+    page,
+    limit,
+    total: items.length,
+    hasMore: items.length > start + selected.length,
+  };
 }
 
-export function preview(text: string, max = 100): string {
-  return text.length > max ? text.slice(0, max - 1) + "…" : text;
+/* =========================================================
+   تفاصيل شكوى للأدمن
+   ========================================================= */
+
+export async function getComplaintForAdmin(id: string) {
+  const snap = await complaintRef(id).get();
+
+  if (!snap.exists) {
+    throw Errors.notFound("الشكوى غير موجودة");
+  }
+
+  return complaintDto(snap.id, snap.data() || {}, "admin");
 }
+
+/* =========================================================
+   إحصائيات الشكاوى
+   ========================================================= */
+
+export async function getComplaintCounts() {
+  const snap = await complaintsRef
+    .limit(LIMITS.ADMIN_SCAN_LIMIT)
+    .get();
+
+  const counts: Record<string, number> = {
+    OPEN: 0,
+    IN_PROGRESS: 0,
+    WAITING_FOR_USER: 0,
+    RESOLVED: 0,
+    CLOSED: 0,
+    TOTAL: 0,
+  };
+
+  for (const doc of snap.docs) {
+    const status = String(doc.data().status || "OPEN");
+
+    counts.TOTAL++;
+
+    if (counts[status] !== undefined) {
+      counts[status]++;
+    }
+  }
+
+  return counts;
+}
+
+/* =========================================================
+   رسائل الشكوى
+   ========================================================= */
+
+export async function listMessages(
+  complaintId: string,
+  viewer: "user" | "admin",
+  page = 1,
+  limit = 50
+) {
+  page = Math.max(1, Number(page || 1));
+  limit = Math.min(100, Math.max(1, Number(limit || 50)));
+
+  const snap = await messagesRef(complaintId)
+    .orderBy("createdAt", "desc")
+    .limit(page * limit)
+    .get();
+
+  const selected = snap.docs.slice(
+    (page - 1) * limit,
+    page * limit
+  );
+
+  selected.reverse();
+
+  return {
+    items: selected.map((doc) =>
+      messageDto(doc.id, doc.data(), viewer)
+    ),
+    page,
+    limit,
+    hasMore: snap.docs.length >= page * limit,
+  };
+}
+
+/* =========================================================
+   إرسال رسالة
+   ========================================================= */
+
+export async function postMessage(
+  actor: Actor,
+  complaintId: string,
+  text: string,
+  options: PostMessageOptions = {}
+) {
+  const complaint = await complaintRef(complaintId).get();
+
+  if (!complaint.exists) {
+    throw Errors.notFound("الشكوى غير موجودة");
+  }
+
+  const complaintData = complaint.data() || {};
+
+  if (
+    actor.role !== "admin" &&
+    actor.role !== "support" &&
+    complaintData.userId !== actor.uid
+  ) {
+    throw Errors.notFound("الشكوى غير موجودة");
+  }
+
+  if (complaintData.status === "CLOSED") {
+    throw Errors.conflict("الشكوى مغلقة. أعد فتحها أولًا.");
+  }
+
+  const clientMessageId = options.clientMessageId || null;
+
+  if (clientMessageId) {
+    const duplicate = await messagesRef(complaintId)
+      .where("clientMessageId", "==", clientMessageId)
+      .limit(1)
+      .get();
+
+    if (!duplicate.empty) {
+      const doc = duplicate.docs[0];
+
+      return {
+        duplicate: true,
+        message: messageDto(
+          doc.id,
+          doc.data(),
+          actor.role === "admin" || actor.role === "support"
+            ? "admin"
+            : "user"
+        ),
+      };
+    }
+  }
+
+  const role: SenderRole =
+    actor.role === "admin" || actor.role === "support"
+      ? "admin"
+      : "user";
+
+  const senderName =
+    role === "admin"
+      ? "فريق الدعم"
+      : actor.name || complaintData.userName || "مستخدم Gameora";
+
+  const messageRef = messagesRef(complaintId).doc();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  await db.runTransaction(async (transaction) => {
+    const current = await transaction.get(complaintRef(complaintId));
+
+    if (!current.exists) {
+      throw Errors.notFound("الشكوى غير موجودة");
+    }
+
+    const currentData = current.data() || {};
+
+    transaction.set(messageRef, {
+      complaintId,
+      senderId: actor.uid,
+      senderRole: role,
+      senderName,
+      kind: "message",
+      text,
+      meta: null,
+      clientMessageId,
+      createdAt: now,
+      status: "sent",
+    });
+
+    transaction.update(complaintRef(complaintId), {
+      lastMessage: preview(text),
+      lastMessageAt: now,
+      lastMessageBy: role,
+      updatedAt: now,
+
+      ...(role === "admin"
+        ? {
+            unreadUser: admin.firestore.FieldValue.increment(1),
+            unreadAdmin: 0,
+          }
+        : {
+            unreadAdmin: admin.firestore.FieldValue.increment(1),
+            unreadUser: 0,
+          }),
+    });
+  });
+
+  const saved = await messageRef.get();
+
+  return {
+    duplicate: false,
+    message: messageDto(
+      saved.id,
+      saved.data() || {},
+      role === "admin" ? "admin" : "user"
+    ),
+  };
+}
+
+/* =========================================================
+   تعليم الرسائل كمقروءة
+   ========================================================= */
+
+export async function markRead(
+  viewer: "user" | "admin",
+  uid: string,
+  complaintId: string
+) {
+  const ref = complaintRef(complaintId);
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    throw Errors.notFound("الشكوى غير موجودة");
+  }
+
+  const data = snap.data() || {};
+
+  if (viewer === "user" && data.userId !== uid) {
+    throw Errors.notFound("الشكوى غير موجودة");
+  }
+
+  await ref.update({
+    ...(viewer === "user"
+      ? { unreadUser: 0 }
+      : { unreadAdmin: 0 }),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return {
+    ok: true,
+    unreadCount: 0,
+  };
+}
+
+/* =========================================================
+   تحديث الشكوى بواسطة الأدمن
+   ========================================================= */
+
+export async function updateComplaint(
+  actor: Actor,
+  complaintId: string,
+  input: {
+    status?: ComplaintStatus;
+    priority?: ComplaintPriority;
+    note?: string | null;
+  }
+) {
+  const ref = complaintRef(complaintId);
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    throw Errors.notFound("الشكوى غير موجودة");
+  }
+
+  const data = snap.data() || {};
+
+  const oldStatus = String(
+    data.status || "OPEN"
+  ) as ComplaintStatus;
+
+  const oldPriority = String(
+    data.priority || "MEDIUM"
+  ) as ComplaintPriority;
+
+  const updates: Record<string, any> = {
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  const systemMessages: Array<{
+    kind: MessageKind;
+    text: string;
+    meta: Record<string, any>;
+  }> = [];
+
+  if (input.status !== undefined) {
+    assertTransition(oldStatus, input.status);
+
+    updates.status = input.status;
+
+    if (input.status === "RESOLVED") {
+      updates.resolvedAt =
+        admin.firestore.FieldValue.serverTimestamp();
+    }
+
+    if (input.status === "CLOSED") {
+      updates.closedAt =
+        admin.firestore.FieldValue.serverTimestamp();
+    }
+
+    if (input.status === "OPEN" && oldStatus === "CLOSED") {
+      updates.closedAt = null;
+      updates.resolvedAt = null;
+      updates.reopenCount =
+        admin.firestore.FieldValue.increment(1);
+    }
+
+    systemMessages.push({
+      kind: "status_change",
+      text: statusChangeText(oldStatus, input.status),
+      meta: {
+        from: oldStatus,
+        to: input.status,
+      },
+    });
+  }
+
+  if (input.priority !== undefined) {
+    if (oldPriority === input.priority) {
+      throw Errors.badRequest("الشكوى بالفعل في هذه الأولوية");
+    }
+
+    updates.priority = input.priority;
+
+    systemMessages.push({
+      kind: "priority_change",
+      text: priorityChangeText(oldPriority, input.priority),
+      meta: {
+        from: oldPriority,
+        to: input.priority,
+      },
+    });
+  }
+
+  if (input.note) {
+    systemMessages.push({
+      kind: "info_request",
+      text: input.note,
+      meta: {
+        adminNote: true,
+      },
+    });
+  }
+
+  if (systemMessages.length === 0) {
+    throw Errors.badRequest("لا توجد تغييرات لتطبيقها");
+  }
+
+  const batch = db.batch();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  batch.update(ref, {
+    ...updates,
+    lastMessage: preview(
+      systemMessages[systemMessages.length - 1].text
+    ),
+    lastMessageAt: now,
+    lastMessageBy: "admin",
+    unreadUser: admin.firestore.FieldValue.increment(1),
+  });
+
+  for (const item of systemMessages) {
+    const msgRef = messagesRef(complaintId).doc();
+
+    batch.set(msgRef, {
+      complaintId,
+      senderId: actor.uid,
+      senderRole: "admin",
+      senderName: "فريق الدعم",
+      kind: item.kind,
+      text: item.text,
+      meta: item.meta,
+      clientMessageId: null,
+      createdAt: now,
+      status: "sent",
+    });
+  }
+
+  await batch.commit();
+
+  const updated = await ref.get();
+
+  return complaintDto(
+    updated.id,
+    updated.data() || {},
+    "admin"
+  );
+      }
