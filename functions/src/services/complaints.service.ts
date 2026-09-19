@@ -2,7 +2,6 @@ import * as admin from "firebase-admin";
 import { db } from "../firebase";
 import { Errors } from "../lib/errors";
 import {
-  ADMIN_SCAN_LIMIT,
   COMPLAINT_STATUSES,
   ComplaintPriority,
   ComplaintStatus,
@@ -34,6 +33,7 @@ interface UserProfile {
 
 interface PostMessageOptions {
   clientMessageId?: string | null;
+  kind?: MessageKind;
 }
 
 const complaintsRef = db.collection("complaints");
@@ -45,28 +45,6 @@ function complaintRef(id: string) {
 
 function messagesRef(id: string) {
   return complaintRef(id).collection("messages");
-}
-
-function isoDate(value: any): string | null {
-  if (!value) return null;
-
-  if (value instanceof admin.firestore.Timestamp) {
-    return value.toDate().toISOString();
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (typeof value?.toDate === "function") {
-    return value.toDate().toISOString();
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  return null;
 }
 
 function serializeData(data: FirebaseFirestore.DocumentData) {
@@ -85,23 +63,6 @@ function serializeData(data: FirebaseFirestore.DocumentData) {
 
 function activeStatus(status: ComplaintStatus): boolean {
   return status !== "RESOLVED" && status !== "CLOSED";
-}
-
-async function getUserProfile(uid: string): Promise<UserProfile> {
-  const snap = await db.collection("users").doc(uid).get();
-  const data = snap.exists ? snap.data() || {} : {};
-
-  return {
-    uid,
-    name: String(
-      data.displayName ||
-        data.username ||
-        data.name ||
-        data.email ||
-        "مستخدم Gameora"
-    ),
-    email: typeof data.email === "string" ? data.email : null,
-  };
 }
 
 async function nextTicketNumber(
@@ -128,8 +89,7 @@ function messageDto(
   data: FirebaseFirestore.DocumentData,
   viewer: "user" | "admin"
 ) {
-  const serialized = serializeData(data);
-  return toComplaintMessageDto(id, serialized, viewer);
+  return toComplaintMessageDto(id, serializeData(data), viewer);
 }
 
 function complaintDto(
@@ -156,8 +116,7 @@ export async function createComplaint(
 ) {
   const existing = await complaintsRef
     .where("userId", "==", profile.uid)
-    .where("status", "in", [...COMPLAINT_STATUSES])
-    .limit(LIMITS.MAX_ACTIVE_PER_USER + 1)
+    .limit(LIMITS.ADMIN_SCAN_LIMIT)
     .get();
 
   const activeCount = existing.docs.filter((doc) =>
@@ -173,7 +132,7 @@ export async function createComplaint(
   const ref = complaintsRef.doc();
   const now = admin.firestore.FieldValue.serverTimestamp();
 
-  const result = await db.runTransaction(async (transaction) => {
+  await db.runTransaction(async (transaction) => {
     const ticketNumber = await nextTicketNumber(transaction);
 
     transaction.set(ref, {
@@ -226,17 +185,15 @@ export async function createComplaint(
       createdAt: now,
       status: "sent",
     });
-
-    return {
-      id: ref.id,
-      ticketNumber,
-      code: ticketCode(ticketNumber),
-    };
   });
 
   const created = await ref.get();
 
-  return complaintDto(created.id, created.data() || {}, "user");
+  return complaintDto(
+    created.id,
+    created.data() || {},
+    "user"
+  );
 }
 
 /* =========================================================
@@ -252,7 +209,10 @@ export async function listUserComplaints(
   } = {}
 ) {
   const page = Math.max(1, Number(options.page || 1));
-  const limit = Math.min(50, Math.max(1, Number(options.limit || 20)));
+  const limit = Math.min(
+    50,
+    Math.max(1, Number(options.limit || 20))
+  );
 
   let query: FirebaseFirestore.Query = complaintsRef.where(
     "userId",
@@ -266,9 +226,7 @@ export async function listUserComplaints(
 
   query = query.orderBy("updatedAt", "desc");
 
-  const snap = await query
-    .limit(page * limit)
-    .get();
+  const snap = await query.limit(page * limit).get();
 
   const start = (page - 1) * limit;
   const docs = snap.docs.slice(start, start + limit);
@@ -284,7 +242,7 @@ export async function listUserComplaints(
 }
 
 /* =========================================================
-   شكوى المستخدم فقط
+   شكوى المستخدم
    ========================================================= */
 
 export async function getOwnedComplaint(
@@ -312,6 +270,7 @@ export async function getOwnedComplaint(
 
 export async function listAdminComplaints(
   options: {
+    type?: string;
     status?: string;
     priority?: string;
     search?: string;
@@ -320,7 +279,10 @@ export async function listAdminComplaints(
   } = {}
 ) {
   const page = Math.max(1, Number(options.page || 1));
-  const limit = Math.min(100, Math.max(1, Number(options.limit || 20)));
+  const limit = Math.min(
+    100,
+    Math.max(1, Number(options.limit || 20))
+  );
 
   let query: FirebaseFirestore.Query = complaintsRef;
 
@@ -330,6 +292,10 @@ export async function listAdminComplaints(
 
   if (options.priority) {
     query = query.where("priority", "==", options.priority);
+  }
+
+  if (options.type) {
+    query = query.where("type", "==", options.type);
   }
 
   query = query.orderBy("updatedAt", "desc");
@@ -343,7 +309,9 @@ export async function listAdminComplaints(
     data: doc.data(),
   }));
 
-  const search = String(options.search || "").trim().toLowerCase();
+  const search = String(options.search || "")
+    .trim()
+    .toLowerCase();
 
   if (search) {
     items = items.filter(({ data }) => {
@@ -357,14 +325,21 @@ export async function listAdminComplaints(
         data.orderId,
       ]
         .filter(Boolean)
-        .map((v) => String(v).toLowerCase());
+        .map((value) =>
+          String(value).toLowerCase()
+        );
 
-      return values.some((v) => v.includes(search));
+      return values.some((value) =>
+        value.includes(search)
+      );
     });
   }
 
   const start = (page - 1) * limit;
-  const selected = items.slice(start, start + limit);
+  const selected = items.slice(
+    start,
+    start + limit
+  );
 
   return {
     items: selected.map(({ id, data }) =>
@@ -373,7 +348,8 @@ export async function listAdminComplaints(
     page,
     limit,
     total: items.length,
-    hasMore: items.length > start + selected.length,
+    hasMore:
+      items.length > start + selected.length,
   };
 }
 
@@ -381,14 +357,20 @@ export async function listAdminComplaints(
    تفاصيل شكوى للأدمن
    ========================================================= */
 
-export async function getComplaintForAdmin(id: string) {
+export async function getComplaintForAdmin(
+  id: string
+) {
   const snap = await complaintRef(id).get();
 
   if (!snap.exists) {
     throw Errors.notFound("الشكوى غير موجودة");
   }
 
-  return complaintDto(snap.id, snap.data() || {}, "admin");
+  return complaintDto(
+    snap.id,
+    snap.data() || {},
+    "admin"
+  );
 }
 
 /* =========================================================
@@ -410,7 +392,9 @@ export async function getComplaintCounts() {
   };
 
   for (const doc of snap.docs) {
-    const status = String(doc.data().status || "OPEN");
+    const status = String(
+      doc.data().status || "OPEN"
+    );
 
     counts.TOTAL++;
 
@@ -433,7 +417,10 @@ export async function listMessages(
   limit = 50
 ) {
   page = Math.max(1, Number(page || 1));
-  limit = Math.min(100, Math.max(1, Number(limit || 50)));
+  limit = Math.min(
+    100,
+    Math.max(1, Number(limit || 50))
+  );
 
   const snap = await messagesRef(complaintId)
     .orderBy("createdAt", "desc")
@@ -449,11 +436,16 @@ export async function listMessages(
 
   return {
     items: selected.map((doc) =>
-      messageDto(doc.id, doc.data(), viewer)
+      messageDto(
+        doc.id,
+        doc.data(),
+        viewer
+      )
     ),
     page,
     limit,
-    hasMore: snap.docs.length >= page * limit,
+    hasMore:
+      snap.docs.length >= page * limit,
   };
 }
 
@@ -467,13 +459,16 @@ export async function postMessage(
   text: string,
   options: PostMessageOptions = {}
 ) {
-  const complaint = await complaintRef(complaintId).get();
+  const complaint = await complaintRef(
+    complaintId
+  ).get();
 
   if (!complaint.exists) {
     throw Errors.notFound("الشكوى غير موجودة");
   }
 
-  const complaintData = complaint.data() || {};
+  const complaintData =
+    complaint.data() || {};
 
   if (
     actor.role !== "admin" &&
@@ -484,14 +479,23 @@ export async function postMessage(
   }
 
   if (complaintData.status === "CLOSED") {
-    throw Errors.conflict("الشكوى مغلقة. أعد فتحها أولًا.");
+    throw Errors.conflict(
+      "الشكوى مغلقة. أعد فتحها أولًا."
+    );
   }
 
-  const clientMessageId = options.clientMessageId || null;
+  const clientMessageId =
+    options.clientMessageId || null;
 
   if (clientMessageId) {
-    const duplicate = await messagesRef(complaintId)
-      .where("clientMessageId", "==", clientMessageId)
+    const duplicate = await messagesRef(
+      complaintId
+    )
+      .where(
+        "clientMessageId",
+        "==",
+        clientMessageId
+      )
       .limit(1)
       .get();
 
@@ -503,7 +507,8 @@ export async function postMessage(
         message: messageDto(
           doc.id,
           doc.data(),
-          actor.role === "admin" || actor.role === "support"
+          actor.role === "admin" ||
+            actor.role === "support"
             ? "admin"
             : "user"
         ),
@@ -512,57 +517,75 @@ export async function postMessage(
   }
 
   const role: SenderRole =
-    actor.role === "admin" || actor.role === "support"
+    actor.role === "admin" ||
+    actor.role === "support"
       ? "admin"
       : "user";
 
   const senderName =
     role === "admin"
       ? "فريق الدعم"
-      : actor.name || complaintData.userName || "مستخدم Gameora";
+      : actor.name ||
+        complaintData.userName ||
+        "مستخدم Gameora";
 
-  const messageRef = messagesRef(complaintId).doc();
-  const now = admin.firestore.FieldValue.serverTimestamp();
+  const messageRef =
+    messagesRef(complaintId).doc();
 
-  await db.runTransaction(async (transaction) => {
-    const current = await transaction.get(complaintRef(complaintId));
+  const now =
+    admin.firestore.FieldValue
+      .serverTimestamp();
 
-    if (!current.exists) {
-      throw Errors.notFound("الشكوى غير موجودة");
+  await db.runTransaction(
+    async (transaction) => {
+      const current = await transaction.get(
+        complaintRef(complaintId)
+      );
+
+      if (!current.exists) {
+        throw Errors.notFound(
+          "الشكوى غير موجودة"
+        );
+      }
+
+      transaction.set(messageRef, {
+        complaintId,
+        senderId: actor.uid,
+        senderRole: role,
+        senderName,
+        kind: options.kind || "message",
+        text,
+        meta: null,
+        clientMessageId,
+        createdAt: now,
+        status: "sent",
+      });
+
+      transaction.update(
+        complaintRef(complaintId),
+        {
+          lastMessage: preview(text),
+          lastMessageAt: now,
+          lastMessageBy: role,
+          updatedAt: now,
+
+          ...(role === "admin"
+            ? {
+                unreadUser:
+                  admin.firestore
+                    .FieldValue.increment(1),
+                unreadAdmin: 0,
+              }
+            : {
+                unreadAdmin:
+                  admin.firestore
+                    .FieldValue.increment(1),
+                unreadUser: 0,
+              }),
+        }
+      );
     }
-
-    const currentData = current.data() || {};
-
-    transaction.set(messageRef, {
-      complaintId,
-      senderId: actor.uid,
-      senderRole: role,
-      senderName,
-      kind: "message",
-      text,
-      meta: null,
-      clientMessageId,
-      createdAt: now,
-      status: "sent",
-    });
-
-    transaction.update(complaintRef(complaintId), {
-      lastMessage: preview(text),
-      lastMessageAt: now,
-      lastMessageBy: role,
-      updatedAt: now,
-
-      ...(role === "admin"
-        ? {
-            unreadUser: admin.firestore.FieldValue.increment(1),
-            unreadAdmin: 0,
-          }
-        : {
-            unreadAdmin: admin.firestore.FieldValue.increment(1),
-            unreadUser: 0,
-          }),
-    });
-  });
+  );
 
   const saved = await messageRef.get();
 
@@ -571,7 +594,9 @@ export async function postMessage(
     message: messageDto(
       saved.id,
       saved.data() || {},
-      role === "admin" ? "admin" : "user"
+      role === "admin"
+        ? "admin"
+        : "user"
     ),
   };
 }
@@ -589,20 +614,29 @@ export async function markRead(
   const snap = await ref.get();
 
   if (!snap.exists) {
-    throw Errors.notFound("الشكوى غير موجودة");
+    throw Errors.notFound(
+      "الشكوى غير موجودة"
+    );
   }
 
   const data = snap.data() || {};
 
-  if (viewer === "user" && data.userId !== uid) {
-    throw Errors.notFound("الشكوى غير موجودة");
+  if (
+    viewer === "user" &&
+    data.userId !== uid
+  ) {
+    throw Errors.notFound(
+      "الشكوى غير موجودة"
+    );
   }
 
   await ref.update({
     ...(viewer === "user"
       ? { unreadUser: 0 }
       : { unreadAdmin: 0 }),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt:
+      admin.firestore.FieldValue
+        .serverTimestamp(),
   });
 
   return {
@@ -628,21 +662,23 @@ export async function updateComplaint(
   const snap = await ref.get();
 
   if (!snap.exists) {
-    throw Errors.notFound("الشكوى غير موجودة");
+    throw Errors.notFound(
+      "الشكوى غير موجودة"
+    );
   }
 
   const data = snap.data() || {};
 
-  const oldStatus = String(
-    data.status || "OPEN"
-  ) as ComplaintStatus;
+  const oldStatus =
+    String(data.status || "OPEN") as ComplaintStatus;
 
-  const oldPriority = String(
-    data.priority || "MEDIUM"
-  ) as ComplaintPriority;
+  const oldPriority =
+    String(data.priority || "MEDIUM") as ComplaintPriority;
 
   const updates: Record<string, any> = {
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt:
+      admin.firestore.FieldValue
+        .serverTimestamp(),
   };
 
   const systemMessages: Array<{
@@ -652,30 +688,42 @@ export async function updateComplaint(
   }> = [];
 
   if (input.status !== undefined) {
-    assertTransition(oldStatus, input.status);
+    assertTransition(
+      oldStatus,
+      input.status
+    );
 
     updates.status = input.status;
 
     if (input.status === "RESOLVED") {
       updates.resolvedAt =
-        admin.firestore.FieldValue.serverTimestamp();
+        admin.firestore.FieldValue
+          .serverTimestamp();
     }
 
     if (input.status === "CLOSED") {
       updates.closedAt =
-        admin.firestore.FieldValue.serverTimestamp();
+        admin.firestore.FieldValue
+          .serverTimestamp();
     }
 
-    if (input.status === "OPEN" && oldStatus === "CLOSED") {
+    if (
+      input.status === "OPEN" &&
+      oldStatus === "CLOSED"
+    ) {
       updates.closedAt = null;
       updates.resolvedAt = null;
       updates.reopenCount =
-        admin.firestore.FieldValue.increment(1);
+        admin.firestore.FieldValue
+          .increment(1);
     }
 
     systemMessages.push({
       kind: "status_change",
-      text: statusChangeText(oldStatus, input.status),
+      text: statusChangeText(
+        oldStatus,
+        input.status
+      ),
       meta: {
         from: oldStatus,
         to: input.status,
@@ -685,14 +733,19 @@ export async function updateComplaint(
 
   if (input.priority !== undefined) {
     if (oldPriority === input.priority) {
-      throw Errors.badRequest("الشكوى بالفعل في هذه الأولوية");
+      throw Errors.badRequest(
+        "الشكوى بالفعل في هذه الأولوية"
+      );
     }
 
     updates.priority = input.priority;
 
     systemMessages.push({
       kind: "priority_change",
-      text: priorityChangeText(oldPriority, input.priority),
+      text: priorityChangeText(
+        oldPriority,
+        input.priority
+      ),
       meta: {
         from: oldPriority,
         to: input.priority,
@@ -711,24 +764,33 @@ export async function updateComplaint(
   }
 
   if (systemMessages.length === 0) {
-    throw Errors.badRequest("لا توجد تغييرات لتطبيقها");
+    throw Errors.badRequest(
+      "لا توجد تغييرات لتطبيقها"
+    );
   }
 
   const batch = db.batch();
-  const now = admin.firestore.FieldValue.serverTimestamp();
+  const now =
+    admin.firestore.FieldValue
+      .serverTimestamp();
 
   batch.update(ref, {
     ...updates,
     lastMessage: preview(
-      systemMessages[systemMessages.length - 1].text
+      systemMessages[
+        systemMessages.length - 1
+      ].text
     ),
     lastMessageAt: now,
     lastMessageBy: "admin",
-    unreadUser: admin.firestore.FieldValue.increment(1),
+    unreadUser:
+      admin.firestore.FieldValue
+        .increment(1),
   });
 
   for (const item of systemMessages) {
-    const msgRef = messagesRef(complaintId).doc();
+    const msgRef =
+      messagesRef(complaintId).doc();
 
     batch.set(msgRef, {
       complaintId,
