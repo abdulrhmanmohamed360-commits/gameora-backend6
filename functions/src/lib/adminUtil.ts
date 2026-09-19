@@ -1,98 +1,158 @@
-import { v4 as uuid } from "uuid";
-import { db } from "../firebase";
-import type { StaffContext } from "../middleware/auth";
+import { NextFunction, Request, Response } from "express";
+import * as admin from "firebase-admin";
+import { Errors } from "../lib/errors";
+import {
+  hasPermission,
+  isStaffRole,
+  type Permission,
+  type StaffRole,
+} from "../lib/permissions";
 
-/*
- * أدوات مشتركة لمسارات الأدمن.
- */
-
-/** بعض الـ collections (زي transactions) فيها createdAt كـ Timestamp وبعضها كـ ISO string. */
-export function toIso(v: any): string | null {
-  if (v === null || v === undefined) return null;
-  if (typeof v === "string") return v;
-  if (v instanceof Date) return v.toISOString();
-  if (typeof v.toDate === "function") {
-    try {
-      return v.toDate().toISOString();
-    } catch {
-      return null;
+// بيضيف Firebase UID على الـ Request بعد التحقق من Firebase ID Token
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      userId?: string;
+      staff?: StaffContext;
     }
   }
-  return null;
 }
 
-/** query-string → نص نضيف أو undefined. */
-export function qs(v: unknown): string | undefined {
-  return typeof v === "string" && v.trim() ? v.trim() : undefined;
-}
-
-/** userId → اسم العرض (لعرض أسماء بدل IDs في لوحة الأدمن). */
-export async function userNames(
-  ids: Array<string | null | undefined>
-): Promise<Record<string, string>> {
-  const unique = Array.from(
-    new Set(
-      ids.filter(
-        (v): v is string =>
-          typeof v === "string" && v.length > 0
-      )
-    )
-  );
-
-  const out: Record<string, string> = {};
-
-  for (let i = 0; i < unique.length; i += 100) {
-    const refs = unique
-      .slice(i, i + 100)
-      .map((id) => db.collection("users").doc(id));
-
-    const snaps = await db.getAll(...refs);
-
-    snaps.forEach((s) => {
-      if (s.exists) {
-        const d = s.data()!;
-        out[s.id] = String(
-          d.displayName ||
-          d.username ||
-          d.email ||
-          s.id
-        );
-      }
-    });
-  }
-
-  return out;
+export interface StaffContext {
+  uid: string;
+  name: string;
+  role: StaffRole;
 }
 
 /**
- * سجل تدقيق للعمليات الحساسة الخاصة بالأدمن.
+ * التحقق من Firebase ID Token فقط.
  */
-export async function audit(
-  staff: StaffContext,
-  action: string,
-  target: { type: string; id?: string | null },
-  meta: Record<string, any> = {}
-): Promise<void> {
-  await db
-    .collection("adminAuditLogs")
-    .doc(uuid())
-    .set({
-      adminId: staff.uid,
-      adminName: staff.name,
-      role: staff.role,
-      action,
-      targetType: target.type,
-      targetId: target.id ?? null,
-      meta,
-      createdAt: new Date().toISOString(),
-    });
+export async function requireAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) {
+  const header = req.header("Authorization") || "";
+  const token = header.startsWith("Bearer ")
+    ? header.slice(7).trim()
+    : null;
+
+  if (!token) {
+    return next(Errors.unauthorized("Missing bearer token"));
+  }
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    req.userId = decodedToken.uid;
+    next();
+  } catch {
+    return next(Errors.unauthorized("Invalid or expired token"));
+  }
 }
 
-export function sortByDateDesc<T>(
-  items: T[],
-  pick: (item: T) => string | null
-): T[] {
-  return [...items].sort((a, b) =>
-    (pick(b) ?? "").localeCompare(pick(a) ?? "")
-  );
-          }
+/**
+ * Auth اختياري.
+ */
+export async function optionalAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) {
+  const header = req.header("Authorization") || "";
+  const token = header.startsWith("Bearer ")
+    ? header.slice(7).trim()
+    : null;
+
+  if (token) {
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      req.userId = decodedToken.uid;
+    } catch {
+      // Optional auth: continue as a guest if the token is invalid.
+    }
+  }
+
+  next();
+}
+
+/**
+ * التحقق أن المستخدم Staff من خلال users/{uid}.role
+ *
+ * الدور لا يأتي من العميل ولا من الـ body أو headers.
+ */
+export async function requireStaff(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) {
+  await requireAuth(req, _res, async (err?: any) => {
+    if (err) {
+      return next(err);
+    }
+
+    try {
+      const uid = req.userId!;
+
+      const snapshot = await admin
+        .firestore()
+        .collection("users")
+        .doc(uid)
+        .get();
+
+      if (!snapshot.exists) {
+        return next(Errors.forbidden("Staff access required"));
+      }
+
+      const data = snapshot.data() || {};
+      const role = data.role;
+
+      if (!isStaffRole(role)) {
+        return next(Errors.forbidden("Staff access required"));
+      }
+
+      const name = String(
+        data.displayName ||
+          data.username ||
+          data.email ||
+          "Gameora Staff"
+      );
+
+      req.staff = {
+        uid,
+        name,
+        role,
+      };
+
+      next();
+    } catch {
+      return next(Errors.forbidden("Unable to verify staff permissions"));
+    }
+  });
+}
+
+/**
+ * حماية مسار حسب صلاحية محددة.
+ */
+export function requirePermission(permission: Permission) {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    await requireStaff(req, res, (err?: any) => {
+      if (err) {
+        return next(err);
+      }
+
+      const staff = req.staff;
+
+      if (!staff || !hasPermission(staff.role, permission)) {
+        return next(Errors.forbidden("Insufficient permissions"));
+      }
+
+      next();
+    });
+  };
+}
