@@ -34,6 +34,7 @@ interface UserProfile {
 interface PostMessageOptions {
   clientMessageId?: string | null;
   kind?: MessageKind;
+  targetStatus?: ComplaintStatus;
 }
 
 const complaintsRef = db.collection("complaints");
@@ -69,14 +70,18 @@ async function nextTicketNumber(
   transaction: FirebaseFirestore.Transaction
 ): Promise<number> {
   const snap = await transaction.get(counterRef);
-  const current = snap.exists ? Number(snap.data()?.value || 0) : 0;
+  const current = snap.exists
+    ? Number(snap.data()?.value || 0)
+    : 0;
+
   const next = current + 1;
 
   transaction.set(
     counterRef,
     {
       value: next,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt:
+        admin.firestore.FieldValue.serverTimestamp(),
     },
     { merge: true }
   );
@@ -89,7 +94,11 @@ function messageDto(
   data: FirebaseFirestore.DocumentData,
   viewer: "user" | "admin"
 ) {
-  return toComplaintMessageDto(id, serializeData(data), viewer);
+  return toComplaintMessageDto(
+    id,
+    serializeData(data),
+    viewer
+  );
 }
 
 function complaintDto(
@@ -97,7 +106,11 @@ function complaintDto(
   data: FirebaseFirestore.DocumentData,
   viewer: "user" | "admin"
 ) {
-  return toComplaintDto(id, serializeData(data), viewer);
+  return toComplaintDto(
+    id,
+    serializeData(data),
+    viewer
+  );
 }
 
 /* =========================================================
@@ -120,20 +133,26 @@ export async function createComplaint(
     .get();
 
   const activeCount = existing.docs.filter((doc) =>
-    activeStatus((doc.data().status || "OPEN") as ComplaintStatus)
+    activeStatus(
+      (doc.data().status || "OPEN") as ComplaintStatus
+    )
   ).length;
 
-  if (activeCount >= LIMITS.MAX_ACTIVE_PER_USER) {
+  if (
+    activeCount >= LIMITS.MAX_ACTIVE_PER_USER
+  ) {
     throw Errors.conflict(
       `لا يمكنك إنشاء أكثر من ${LIMITS.MAX_ACTIVE_PER_USER} شكاوى مفتوحة في نفس الوقت`
     );
   }
 
   const ref = complaintsRef.doc();
-  const now = admin.firestore.FieldValue.serverTimestamp();
+  const now =
+    admin.firestore.FieldValue.serverTimestamp();
 
   await db.runTransaction(async (transaction) => {
-    const ticketNumber = await nextTicketNumber(transaction);
+    const ticketNumber =
+      await nextTicketNumber(transaction);
 
     transaction.set(ref, {
       userId: profile.uid,
@@ -169,7 +188,8 @@ export async function createComplaint(
       updatedAt: now,
     });
 
-    const messageRef = messagesRef(ref.id).doc();
+    const messageRef =
+      messagesRef(ref.id).doc();
 
     transaction.set(messageRef, {
       complaintId: ref.id,
@@ -208,36 +228,61 @@ export async function listUserComplaints(
     limit?: number;
   } = {}
 ) {
-  const page = Math.max(1, Number(options.page || 1));
+  const page = Math.max(
+    1,
+    Number(options.page || 1)
+  );
+
   const limit = Math.min(
     50,
     Math.max(1, Number(options.limit || 20))
   );
 
-  let query: FirebaseFirestore.Query = complaintsRef.where(
-    "userId",
-    "==",
-    uid
-  );
+  let query: FirebaseFirestore.Query =
+    complaintsRef.where(
+      "userId",
+      "==",
+      uid
+    );
 
   if (options.status) {
-    query = query.where("status", "==", options.status);
+    query = query.where(
+      "status",
+      "==",
+      options.status
+    );
   }
 
-  query = query.orderBy("updatedAt", "desc");
+  query = query.orderBy(
+    "updatedAt",
+    "desc"
+  );
 
-  const snap = await query.limit(page * limit).get();
+  const snap = await query
+    .limit(page * limit)
+    .get();
 
-  const start = (page - 1) * limit;
-  const docs = snap.docs.slice(start, start + limit);
+  const start =
+    (page - 1) * limit;
+
+  const docs = snap.docs.slice(
+    start,
+    start + limit
+  );
 
   return {
     items: docs.map((doc) =>
-      complaintDto(doc.id, doc.data(), "user")
+      complaintDto(
+        doc.id,
+        doc.data(),
+        "user"
+      )
     ),
     page,
     limit,
-    hasMore: snap.docs.length > start + docs.length,
+    hasMore:
+      snap.docs.length >
+      start + docs.length,
   };
 }
 
@@ -249,16 +294,22 @@ export async function getOwnedComplaint(
   uid: string,
   id: string
 ) {
-  const snap = await complaintRef(id).get();
+  const snap =
+    await complaintRef(id).get();
 
   if (!snap.exists) {
-    throw Errors.notFound("الشكوى غير موجودة");
+    throw Errors.notFound(
+      "الشكوى غير موجودة"
+    );
   }
 
-  const data = snap.data() || {};
+  const data =
+    snap.data() || {};
 
   if (data.userId !== uid) {
-    throw Errors.notFound("الشكوى غير موجودة");
+    throw Errors.notFound(
+      "الشكوى غير موجودة"
+    );
   }
 
   return snap;
@@ -274,82 +325,133 @@ export async function listAdminComplaints(
     status?: string;
     priority?: string;
     search?: string;
+    q?: string;
+    unreadOnly?: boolean;
     page?: number;
     limit?: number;
   } = {}
 ) {
-  const page = Math.max(1, Number(options.page || 1));
-  const limit = Math.min(
-    100,
-    Math.max(1, Number(options.limit || 20))
+  const page = Math.max(
+    1,
+    Number(options.page || 1)
   );
 
-  let query: FirebaseFirestore.Query = complaintsRef;
+  const limit = Math.min(
+    100,
+    Math.max(
+      1,
+      Number(options.limit || 20)
+    )
+  );
+
+  let query: FirebaseFirestore.Query =
+    complaintsRef;
 
   if (options.status) {
-    query = query.where("status", "==", options.status);
+    query = query.where(
+      "status",
+      "==",
+      options.status
+    );
   }
 
   if (options.priority) {
-    query = query.where("priority", "==", options.priority);
+    query = query.where(
+      "priority",
+      "==",
+      options.priority
+    );
   }
 
   if (options.type) {
-    query = query.where("type", "==", options.type);
+    query = query.where(
+      "type",
+      "==",
+      options.type
+    );
   }
 
-  query = query.orderBy("updatedAt", "desc");
+  if (options.unreadOnly) {
+    query = query.where(
+      "unreadAdmin",
+      ">",
+      0
+    );
+  }
+
+  query = query.orderBy(
+    "updatedAt",
+    "desc"
+  );
 
   const snap = await query
     .limit(LIMITS.ADMIN_SCAN_LIMIT)
     .get();
 
-  let items = snap.docs.map((doc) => ({
-    id: doc.id,
-    data: doc.data(),
-  }));
+  let items = snap.docs.map(
+    (doc) => ({
+      id: doc.id,
+      data: doc.data(),
+    })
+  );
 
-  const search = String(options.search || "")
+  const search = String(
+    options.search ||
+      options.q ||
+      ""
+  )
     .trim()
     .toLowerCase();
 
   if (search) {
-    items = items.filter(({ data }) => {
-      const values = [
-        data.code,
-        data.ticketNumber,
-        data.subject,
-        data.userName,
-        data.userEmail,
-        data.userId,
-        data.orderId,
-      ]
-        .filter(Boolean)
-        .map((value) =>
-          String(value).toLowerCase()
-        );
+    items = items.filter(
+      ({ data }) => {
+        const values = [
+          data.code,
+          data.ticketNumber,
+          data.subject,
+          data.userName,
+          data.userEmail,
+          data.userId,
+          data.orderId,
+        ]
+          .filter(Boolean)
+          .map((value) =>
+            String(value).toLowerCase()
+          );
 
-      return values.some((value) =>
-        value.includes(search)
-      );
-    });
+        return values.some(
+          (value) =>
+            value.includes(search)
+        );
+      }
+    );
   }
 
-  const start = (page - 1) * limit;
-  const selected = items.slice(
-    start,
-    start + limit
-  );
+  const start =
+    (page - 1) * limit;
+
+  const selected =
+    items.slice(
+      start,
+      start + limit
+    );
 
   return {
-    items: selected.map(({ id, data }) =>
-      complaintDto(id, data, "admin")
+    items: selected.map(
+      ({ id, data }) =>
+        complaintDto(
+          id,
+          data,
+          "admin"
+        )
     ),
     page,
     limit,
     total: items.length,
     hasMore:
-      items.length > start + selected.length,
+      items.length >
+      start + selected.length,
   };
 }
 
@@ -360,10 +462,13 @@ export async function listAdminComplaints(
 export async function getComplaintForAdmin(
   id: string
 ) {
-  const snap = await complaintRef(id).get();
+  const snap =
+    await complaintRef(id).get();
 
   if (!snap.exists) {
-    throw Errors.notFound("الشكوى غير موجودة");
+    throw Errors.notFound(
+      "الشكوى غير موجودة"
+    );
   }
 
   return complaintDto(
@@ -378,11 +483,17 @@ export async function getComplaintForAdmin(
    ========================================================= */
 
 export async function getComplaintCounts() {
-  const snap = await complaintsRef
-    .limit(LIMITS.ADMIN_SCAN_LIMIT)
-    .get();
+  const snap =
+    await complaintsRef
+      .limit(
+        LIMITS.ADMIN_SCAN_LIMIT
+      )
+      .get();
 
-  const counts: Record<string, number> = {
+  const counts: Record<
+    string,
+    number
+  > = {
     OPEN: 0,
     IN_PROGRESS: 0,
     WAITING_FOR_USER: 0,
@@ -392,13 +503,18 @@ export async function getComplaintCounts() {
   };
 
   for (const doc of snap.docs) {
-    const status = String(
-      doc.data().status || "OPEN"
-    );
+    const status =
+      String(
+        doc.data().status ||
+          "OPEN"
+      );
 
     counts.TOTAL++;
 
-    if (counts[status] !== undefined) {
+    if (
+      counts[status] !==
+      undefined
+    ) {
       counts[status]++;
     }
   }
@@ -416,36 +532,52 @@ export async function listMessages(
   page = 1,
   limit = 50
 ) {
-  page = Math.max(1, Number(page || 1));
+  page = Math.max(
+    1,
+    Number(page || 1)
+  );
+
   limit = Math.min(
     100,
-    Math.max(1, Number(limit || 50))
+    Math.max(
+      1,
+      Number(limit || 50)
+    )
   );
 
-  const snap = await messagesRef(complaintId)
-    .orderBy("createdAt", "desc")
-    .limit(page * limit)
-    .get();
+  const snap =
+    await messagesRef(
+      complaintId
+    )
+      .orderBy(
+        "createdAt",
+        "desc"
+      )
+      .limit(page * limit)
+      .get();
 
-  const selected = snap.docs.slice(
-    (page - 1) * limit,
-    page * limit
-  );
+  const selected =
+    snap.docs.slice(
+      (page - 1) * limit,
+      page * limit
+    );
 
   selected.reverse();
 
   return {
-    items: selected.map((doc) =>
-      messageDto(
-        doc.id,
-        doc.data(),
-        viewer
-      )
+    items: selected.map(
+      (doc) =>
+        messageDto(
+          doc.id,
+          doc.data(),
+          viewer
+        )
     ),
     page,
     limit,
     hasMore:
-      snap.docs.length >= page * limit,
+      snap.docs.length >=
+      page * limit,
   };
 }
 
@@ -459,12 +591,15 @@ export async function postMessage(
   text: string,
   options: PostMessageOptions = {}
 ) {
-  const complaint = await complaintRef(
-    complaintId
-  ).get();
+  const complaint =
+    await complaintRef(
+      complaintId
+    ).get();
 
   if (!complaint.exists) {
-    throw Errors.notFound("الشكوى غير موجودة");
+    throw Errors.notFound(
+      "الشكوى غير موجودة"
+    );
   }
 
   const complaintData =
@@ -473,42 +608,53 @@ export async function postMessage(
   if (
     actor.role !== "admin" &&
     actor.role !== "support" &&
-    complaintData.userId !== actor.uid
+    complaintData.userId !==
+      actor.uid
   ) {
-    throw Errors.notFound("الشكوى غير موجودة");
+    throw Errors.notFound(
+      "الشكوى غير موجودة"
+    );
   }
 
-  if (complaintData.status === "CLOSED") {
+  if (
+    complaintData.status ===
+    "CLOSED"
+  ) {
     throw Errors.conflict(
       "الشكوى مغلقة. أعد فتحها أولًا."
     );
   }
 
   const clientMessageId =
-    options.clientMessageId || null;
+    options.clientMessageId ||
+    null;
 
   if (clientMessageId) {
-    const duplicate = await messagesRef(
-      complaintId
-    )
-      .where(
-        "clientMessageId",
-        "==",
-        clientMessageId
+    const duplicate =
+      await messagesRef(
+        complaintId
       )
-      .limit(1)
-      .get();
+        .where(
+          "clientMessageId",
+          "==",
+          clientMessageId
+        )
+        .limit(1)
+        .get();
 
     if (!duplicate.empty) {
-      const doc = duplicate.docs[0];
+      const doc =
+        duplicate.docs[0];
 
       return {
         duplicate: true,
         message: messageDto(
           doc.id,
           doc.data(),
-          actor.role === "admin" ||
-            actor.role === "support"
+          actor.role ===
+              "admin" ||
+            actor.role ===
+              "support"
             ? "admin"
             : "user"
         ),
@@ -530,17 +676,23 @@ export async function postMessage(
         "مستخدم Gameora";
 
   const messageRef =
-    messagesRef(complaintId).doc();
+    messagesRef(
+      complaintId
+    ).doc();
 
   const now =
-    admin.firestore.FieldValue
+    admin.firestore
+      .FieldValue
       .serverTimestamp();
 
   await db.runTransaction(
     async (transaction) => {
-      const current = await transaction.get(
-        complaintRef(complaintId)
-      );
+      const current =
+        await transaction.get(
+          complaintRef(
+            complaintId
+          )
+        );
 
       if (!current.exists) {
         throw Errors.notFound(
@@ -548,46 +700,126 @@ export async function postMessage(
         );
       }
 
-      transaction.set(messageRef, {
-        complaintId,
-        senderId: actor.uid,
-        senderRole: role,
-        senderName,
-        kind: options.kind || "message",
-        text,
-        meta: null,
-        clientMessageId,
-        createdAt: now,
-        status: "sent",
-      });
+      const currentData =
+        current.data() || {};
+
+      const currentStatus =
+        String(
+          currentData.status ||
+            "OPEN"
+        ) as ComplaintStatus;
+
+      let targetStatus =
+        options.targetStatus;
+
+      if (
+        targetStatus !==
+        undefined
+      ) {
+        assertTransition(
+          currentStatus,
+          targetStatus
+        );
+      }
+
+      const complaintUpdates: Record<
+        string,
+        any
+      > = {
+        lastMessage:
+          preview(text),
+        lastMessageAt: now,
+        lastMessageBy: role,
+        updatedAt: now,
+
+        ...(role === "admin"
+          ? {
+              unreadUser:
+                admin.firestore
+                  .FieldValue
+                  .increment(1),
+              unreadAdmin: 0,
+            }
+          : {
+              unreadAdmin:
+                admin.firestore
+                  .FieldValue
+                  .increment(1),
+              unreadUser: 0,
+            }),
+      };
+
+      if (
+        targetStatus !==
+        undefined
+      ) {
+        complaintUpdates.status =
+          targetStatus;
+
+        if (
+          targetStatus ===
+          "RESOLVED"
+        ) {
+          complaintUpdates.resolvedAt =
+            now;
+        }
+
+        if (
+          targetStatus ===
+          "CLOSED"
+        ) {
+          complaintUpdates.closedAt =
+            now;
+        }
+
+        if (
+          targetStatus ===
+            "OPEN" &&
+          currentStatus ===
+            "CLOSED"
+        ) {
+          complaintUpdates.closedAt =
+            null;
+
+          complaintUpdates.resolvedAt =
+            null;
+
+          complaintUpdates.reopenCount =
+            admin.firestore
+              .FieldValue
+              .increment(1);
+        }
+      }
+
+      transaction.set(
+        messageRef,
+        {
+          complaintId,
+          senderId: actor.uid,
+          senderRole: role,
+          senderName,
+          kind:
+            options.kind ||
+            "message",
+          text,
+          meta: null,
+          clientMessageId,
+          createdAt: now,
+          status: "sent",
+        }
+      );
 
       transaction.update(
-        complaintRef(complaintId),
-        {
-          lastMessage: preview(text),
-          lastMessageAt: now,
-          lastMessageBy: role,
-          updatedAt: now,
-
-          ...(role === "admin"
-            ? {
-                unreadUser:
-                  admin.firestore
-                    .FieldValue.increment(1),
-                unreadAdmin: 0,
-              }
-            : {
-                unreadAdmin:
-                  admin.firestore
-                    .FieldValue.increment(1),
-                unreadUser: 0,
-              }),
-        }
+        complaintRef(
+          complaintId
+        ),
+        complaintUpdates
       );
     }
   );
 
-  const saved = await messageRef.get();
+  const saved =
+    await messageRef.get();
 
   return {
     duplicate: false,
@@ -602,7 +834,7 @@ export async function postMessage(
 }
 
 /* =========================================================
-   تعليم الرسائل كمقروءة
+   تعليم كمقروء
    ========================================================= */
 
 export async function markRead(
@@ -610,8 +842,13 @@ export async function markRead(
   uid: string,
   complaintId: string
 ) {
-  const ref = complaintRef(complaintId);
-  const snap = await ref.get();
+  const ref =
+    complaintRef(
+      complaintId
+    );
+
+  const snap =
+    await ref.get();
 
   if (!snap.exists) {
     throw Errors.notFound(
@@ -619,7 +856,8 @@ export async function markRead(
     );
   }
 
-  const data = snap.data() || {};
+  const data =
+    snap.data() || {};
 
   if (
     viewer === "user" &&
@@ -634,8 +872,10 @@ export async function markRead(
     ...(viewer === "user"
       ? { unreadUser: 0 }
       : { unreadAdmin: 0 }),
+
     updatedAt:
-      admin.firestore.FieldValue
+      admin.firestore
+        .FieldValue
         .serverTimestamp(),
   });
 
@@ -646,7 +886,7 @@ export async function markRead(
 }
 
 /* =========================================================
-   تحديث الشكوى بواسطة الأدمن
+   تحديث الشكوى
    ========================================================= */
 
 export async function updateComplaint(
@@ -658,8 +898,13 @@ export async function updateComplaint(
     note?: string | null;
   }
 ) {
-  const ref = complaintRef(complaintId);
-  const snap = await ref.get();
+  const ref =
+    complaintRef(
+      complaintId
+    );
+
+  const snap =
+    await ref.get();
 
   if (!snap.exists) {
     throw Errors.notFound(
@@ -667,54 +912,86 @@ export async function updateComplaint(
     );
   }
 
-  const data = snap.data() || {};
+  const data =
+    snap.data() || {};
 
   const oldStatus =
-    String(data.status || "OPEN") as ComplaintStatus;
+    String(
+      data.status || "OPEN"
+    ) as ComplaintStatus;
 
   const oldPriority =
-    String(data.priority || "MEDIUM") as ComplaintPriority;
+    String(
+      data.priority || "MEDIUM"
+    ) as ComplaintPriority;
 
-  const updates: Record<string, any> = {
+  const updates: Record<
+    string,
+    any
+  > = {
     updatedAt:
-      admin.firestore.FieldValue
+      admin.firestore
+        .FieldValue
         .serverTimestamp(),
   };
 
-  const systemMessages: Array<{
-    kind: MessageKind;
-    text: string;
-    meta: Record<string, any>;
-  }> = [];
+  const systemMessages:
+    Array<{
+      kind: MessageKind;
+      text: string;
+      meta: Record<
+        string,
+        any
+      >;
+    }> = [];
 
-  if (input.status !== undefined) {
+  if (
+    input.status !==
+    undefined
+  ) {
     assertTransition(
       oldStatus,
       input.status
     );
 
-    updates.status = input.status;
+    updates.status =
+      input.status;
 
-    if (input.status === "RESOLVED") {
+    if (
+      input.status ===
+      "RESOLVED"
+    ) {
       updates.resolvedAt =
-        admin.firestore.FieldValue
-          .serverTimestamp();
-    }
-
-    if (input.status === "CLOSED") {
-      updates.closedAt =
-        admin.firestore.FieldValue
+        admin.firestore
+          .FieldValue
           .serverTimestamp();
     }
 
     if (
-      input.status === "OPEN" &&
-      oldStatus === "CLOSED"
+      input.status ===
+      "CLOSED"
     ) {
-      updates.closedAt = null;
-      updates.resolvedAt = null;
+      updates.closedAt =
+        admin.firestore
+          .FieldValue
+          .serverTimestamp();
+    }
+
+    if (
+      input.status ===
+        "OPEN" &&
+      oldStatus ===
+        "CLOSED"
+    ) {
+      updates.closedAt =
+        null;
+
+      updates.resolvedAt =
+        null;
+
       updates.reopenCount =
-        admin.firestore.FieldValue
+        admin.firestore
+          .FieldValue
           .increment(1);
     }
 
@@ -731,14 +1008,21 @@ export async function updateComplaint(
     });
   }
 
-  if (input.priority !== undefined) {
-    if (oldPriority === input.priority) {
+  if (
+    input.priority !==
+    undefined
+  ) {
+    if (
+      oldPriority ===
+      input.priority
+    ) {
       throw Errors.badRequest(
         "الشكوى بالفعل في هذه الأولوية"
       );
     }
 
-    updates.priority = input.priority;
+    updates.priority =
+      input.priority;
 
     systemMessages.push({
       kind: "priority_change",
@@ -763,34 +1047,50 @@ export async function updateComplaint(
     });
   }
 
-  if (systemMessages.length === 0) {
+  if (
+    systemMessages.length ===
+    0
+  ) {
     throw Errors.badRequest(
       "لا توجد تغييرات لتطبيقها"
     );
   }
 
-  const batch = db.batch();
+  const batch =
+    db.batch();
+
   const now =
-    admin.firestore.FieldValue
+    admin.firestore
+      .FieldValue
       .serverTimestamp();
 
   batch.update(ref, {
     ...updates,
+
     lastMessage: preview(
       systemMessages[
-        systemMessages.length - 1
+        systemMessages.length -
+          1
       ].text
     ),
+
     lastMessageAt: now,
     lastMessageBy: "admin",
+
     unreadUser:
-      admin.firestore.FieldValue
+      admin.firestore
+        .FieldValue
         .increment(1),
   });
 
-  for (const item of systemMessages) {
+  for (
+    const item of
+      systemMessages
+  ) {
     const msgRef =
-      messagesRef(complaintId).doc();
+      messagesRef(
+        complaintId
+      ).doc();
 
     batch.set(msgRef, {
       complaintId,
@@ -808,7 +1108,8 @@ export async function updateComplaint(
 
   await batch.commit();
 
-  const updated = await ref.get();
+  const updated =
+    await ref.get();
 
   return complaintDto(
     updated.id,
