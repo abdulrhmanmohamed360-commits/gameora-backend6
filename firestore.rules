@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// الكتابة كلها بتتم من الـ Backend فقط (Admin SDK بيتخطى القواعد دي).
+//
+// القراءة مفتوحة فقط لأطراف المحادثة (participantIds) عشان التطبيق يقدر
+// يعمل Realtime Listener على المحادثات والرسائل بـ Firebase Auth الحالي.
+// أي حاجة تانية مقفولة بالكامل.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /conversations/{conversationId} {
+      allow read: if request.auth != null
+        && request.auth.uid in resource.data.participantIds;
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
