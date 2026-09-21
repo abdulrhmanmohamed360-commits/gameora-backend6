@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// كل الكتابة تتم فقط من الـ Backend (Admin SDK بيتخطى القواعد دي) - التطبيق
+// لا يكتب على Firestore مباشرة أبدًا، وكل قرارات الصلاحيات (مين يقدر يبعت
+// رسالة، رد الإدارة، تغيير حالة التذكرة...) تتم على السيرفر فقط.
+//
+// القراءة المباشرة مسموحة فقط لأصحاب العلاقة في "conversations" و
+// "messages" الخاصة بيهم، عشان تطبيق Android يقدر يستخدم
+// Firestore realtime listener (بدل الـ polling) لعرض الرسائل الجديدة
+// فور وصولها بدون Refresh - استنادًا فقط إلى هوية Firebase Auth
+// الموثّقة (request.auth.uid)، وليس أي قيمة يبعتها التطبيق نفسه.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /conversations/{conversationId} {
+      allow read: if request.auth != null &&
+        request.auth.uid in resource.data.participantIds;
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null &&
+          request.auth.uid in get(
+            /databases/$(database)/documents/conversations/$(conversationId)
+          ).data.participantIds;
+        allow write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
